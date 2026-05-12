@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bricks Import &amp; Export</title>
+  <meta name="description" content="Export and import your entire Bricks Builder configuration — settings, theme styles, global classes, color palette, pages, and templates — as a single zip archive.">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --border:    #30363d;
+      --text:      #e6edf3;
+      --muted:     #8b949e;
+      --accent:    #58a6ff;
+      --accent-dim:#1f6feb;
+      --code-bg:   #1a2030;
+      --radius:    6px;
+      --max-w:     840px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    /* ── Top bar ─────────────────────────────────────────────── */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 1.5rem;
+    }
+    .topbar-inner {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .topbar-brand {
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--text);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .topbar-github {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      transition: color 0.15s;
+    }
+    .topbar-github:hover { color: var(--text); }
+
+    /* ── Main ────────────────────────────────────────────────── */
+    main {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 3rem 1.5rem 5rem;
+    }
+
+    /* ── Typography ──────────────────────────────────────────── */
+    h2 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      margin-top: 3.5rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--accent);
+    }
+    h3 { font-size: 1.05rem; font-weight: 600; margin-top: 1.8rem; margin-bottom: 0.5rem; }
+    p  { margin-bottom: 1rem; }
+    a  { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    ul { padding-left: 1.5rem; margin-bottom: 1rem; }
+    li { margin-bottom: 0.3rem; }
+
+    /* ── Hero ────────────────────────────────────────────────── */
+    .hero {
+      text-align: center;
+      padding: 3rem 0 2.5rem;
+    }
+    .hero h1 {
+      font-size: 2.6rem;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 1rem;
+    }
+    .hero .tagline {
+      font-size: 1.1rem;
+      color: var(--muted);
+      max-width: 620px;
+      margin: 0 auto 1.75rem;
+    }
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    .badges img { height: 22px; }
+
+    /* ── Feature grid ────────────────────────────────────────── */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.25rem 1rem;
+    }
+    .feature-card .label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.4rem;
+    }
+    .feature-card p { font-size: 0.9rem; color: var(--muted); margin: 0; }
+
+    /* ── Tables ──────────────────────────────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.9rem;
+    }
+    th {
+      background: var(--surface);
+      color: var(--muted);
+      font-weight: 600;
+      text-align: left;
+      padding: 0.6rem 0.9rem;
+      border: 1px solid var(--border);
+      font-size: 0.78rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    td {
+      padding: 0.6rem 0.9rem;
+      border: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tr:nth-child(even) td { background: #12171e; }
+
+    /* ── Code ────────────────────────────────────────────────── */
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.1rem 1.25rem;
+      overflow-x: auto;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.855rem;
+      line-height: 1.6;
+    }
+    pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      color: #e6edf3;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+    code {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.15em 0.45em;
+      font-size: 0.85em;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+
+    /* ── Steps ───────────────────────────────────────────────── */
+    .steps ol { padding-left: 0; list-style: none; counter-reset: steps; }
+    .steps li {
+      counter-increment: steps;
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      margin-bottom: 0.75rem;
+    }
+    .steps li::before {
+      content: counter(steps);
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--accent-dim);
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 0.2rem;
+    }
+    .steps li p { margin: 0; }
+
+    /* ── Meta key list ───────────────────────────────────────── */
+    .meta-keys {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 1.5rem;
+    }
+    .meta-keys code {
+      font-size: 0.8rem;
+    }
+
+    /* ── Footer ──────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem 1.5rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    footer a { color: var(--muted); }
+    footer a:hover { color: var(--text); }
+
+    /* ── Secondary nav ─────────────────────────────────────────── */
+    .subnav {
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 56px;
+      z-index: 99;
+    }
+    .subnav-inner {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 0 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .subnav-inner::-webkit-scrollbar { display: none; }
+    .subnav-inner a {
+      flex-shrink: 0;
+      color: var(--muted);
+      font-size: 0.85rem;
+      font-weight: 500;
+      padding: 0.7rem 0.9rem;
+      text-decoration: none;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .subnav-inner a:hover {
+      color: var(--text);
+      text-decoration: none;
+    }
+    .subnav-inner a.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    /* ── Responsive ──────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .hero h1 { font-size: 2rem; }
+      main { padding: 2rem 1rem 4rem; }
+      .features { grid-template-columns: 1fr; }
+      .subnav-inner { padding: 0 1rem; }
+      .subnav-inner a { padding: 0.65rem 0.7rem; font-size: 0.8rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="topbar-brand" href="#">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="2" y="2" width="12" height="12" rx="1" stroke="#58a6ff" stroke-width="1.4"/>
+          <path d="M5 5h6M5 8h4M5 11h5" stroke="#58a6ff" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        Bricks Import &amp; Export
+      </a>
+      <a class="topbar-github" href="https://github.com/katsarov/bricks-import-export" target="_blank" rel="noopener">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+        </svg>
+        View on GitHub
+      </a>
+    </div>
+  </header>
+
+  <nav class="subnav" aria-label="Page sections">
+    <div class="subnav-inner">
+      <a href="#features">Features</a>
+      <a href="#what-gets-exported">What Gets Exported</a>
+      <a href="#archive-structure">Archive Structure</a>
+      <a href="#installation">Installation</a>
+      <a href="#admin-ui">Admin UI</a>
+      <a href="#wp-cli">WP-CLI</a>
+      <a href="#filters">Filters</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <!-- Hero -->
+    <div class="hero">
+      <h1>Bricks Import &amp; Export</h1>
+      <p class="tagline">Export and import your entire Bricks Builder configuration — settings, theme styles, global classes, color palette, pages, and templates — as a single zip archive.</p>
+      <div class="badges">
+        <img alt="Version 1.0.0" src="https://img.shields.io/badge/version-1.0.0-1f6feb?style=flat-square">
+        <img alt="WordPress 6.0+" src="https://img.shields.io/badge/WordPress-6.0%2B-21759b?style=flat-square&logo=wordpress&logoColor=white">
+        <img alt="PHP 7.4+" src="https://img.shields.io/badge/PHP-7.4%2B-777bb4?style=flat-square&logo=php&logoColor=white">
+        <img alt="License GPL-2.0-or-later" src="https://img.shields.io/badge/license-GPL--2.0--or--later-0f766e?style=flat-square">
+      </div>
+    </div>
+
+    <!-- Features -->
+    <h2 id="features">Features</h2>
+    <div class="features">
+      <div class="feature-card">
+        <div class="label">Export</div>
+        <p>Downloads a zip containing Bricks options, all pages, and all Bricks templates with their full meta.</p>
+      </div>
+      <div class="feature-card">
+        <div class="label">Import</div>
+        <p>Uploads and restores a previously exported archive, remapping post IDs where needed.</p>
+      </div>
+      <div class="feature-card">
+        <div class="label">Manifest</div>
+        <p>Every archive includes a <code>manifest.json</code> with plugin version, Bricks version, and export date for version-safe imports.</p>
+      </div>
+      <div class="feature-card">
+        <div class="label">Admin UI</div>
+        <p>Clean export/import screen registered as the last submenu item under Bricks.</p>
+      </div>
+      <div class="feature-card">
+        <div class="label">WP-CLI</div>
+        <p><code>wp bricks export</code> and <code>wp bricks import</code> for scripted backups, migrations, and CI/CD pipelines.</p>
+      </div>
+      <div class="feature-card">
+        <div class="label">Extensible</div>
+        <p>Three filters let you add post types, meta keys, or options to the export without modifying the plugin.</p>
+      </div>
+      <div class="feature-card">
+        <div class="label">Security</div>
+        <p>All admin actions are protected by <code>manage_options</code> capability checks and WordPress nonces.</p>
+      </div>
+      <div class="feature-card">
+        <div class="label">Lightweight</div>
+        <p>No external dependencies, no database tables, no build step. Plain PHP using <code>ZipArchive</code> and standard WordPress APIs.</p>
+      </div>
+    </div>
+
+    <!-- What Gets Exported -->
+    <h2 id="what-gets-exported">What Gets Exported</h2>
+
+    <h3>Options</h3>
+    <table>
+      <thead>
+        <tr><th>Option</th><th>Contains</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>bricks_global_settings</code></td><td>Global Bricks builder settings</td></tr>
+        <tr><td><code>bricks_theme_styles</code></td><td>Registered theme styles and their element overrides</td></tr>
+        <tr><td><code>bricks_global_classes</code></td><td>All global CSS classes and their style definitions</td></tr>
+        <tr><td><code>bricks_color_palette</code></td><td>Custom color palette swatches</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Post types</h3>
+    <table>
+      <thead>
+        <tr><th>Post type</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>page</code></td><td>All WordPress pages with Bricks content meta</td></tr>
+        <tr><td><code>bricks_template</code></td><td>All Bricks templates (headers, footers, sections, popups, etc.)</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Post meta</h3>
+    <div class="meta-keys">
+      <code>_bricks_page_content_2</code>
+      <code>_bricks_page_header_2</code>
+      <code>_bricks_page_footer_2</code>
+      <code>_bricks_editor_mode</code>
+      <code>_bricks_template_type</code>
+      <code>_bricks_template_settings</code>
+      <code>_bricks_page_settings</code>
+    </div>
+
+    <!-- Archive Structure -->
+    <h2 id="archive-structure">Archive Structure</h2>
+    <pre><code>bricks-export-YYYY-MM-DD.zip
+├── manifest.json              Plugin version, Bricks version, export timestamp
+├── options/
+│   ├── bricks_global_settings.json
+│   ├── bricks_theme_styles.json
+│   ├── bricks_global_classes.json
+│   └── bricks_color_palette.json
+└── posts/
+    ├── index.json             Slug, type, and filename for every exported post
+    ├── page__home.json
+    ├── page__about.json
+    └── bricks_template__site-header.json</code></pre>
+
+    <!-- Installation -->
+    <h2 id="installation">Installation</h2>
+    <p>Place the plugin directory inside WordPress:</p>
+    <pre><code>wp-content/plugins/bricks-import-export</code></pre>
+    <p>Activate via WP-CLI:</p>
+    <pre><code>wp plugin activate bricks-import-export</code></pre>
+    <p>Or activate from <strong>Plugins</strong> in the WordPress admin.</p>
+
+    <h3>Requirements</h3>
+    <table>
+      <thead>
+        <tr><th>Requirement</th><th>Version</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>WordPress</td><td>6.0 or newer</td></tr>
+        <tr><td>PHP</td><td>7.4 or newer</td></tr>
+        <tr><td>PHP extension</td><td><code>ZipArchive</code> (enabled by default on most hosts)</td></tr>
+        <tr><td>Theme</td><td>Bricks Builder (any version)</td></tr>
+        <tr><td>Permissions</td><td>Administrator role</td></tr>
+      </tbody>
+    </table>
+
+    <!-- Admin UI -->
+    <h2 id="admin-ui">Admin UI</h2>
+    <div class="steps">
+      <ol>
+        <li><p>Open <strong>Bricks → Import &amp; Export</strong> in the WordPress admin sidebar.</p></li>
+        <li><p>Click <strong>Export</strong> to download the current Bricks state as a zip archive.</p></li>
+        <li><p>To restore, choose a previously exported zip under <strong>Import</strong> and click <strong>Import</strong>.</p></li>
+      </ol>
+    </div>
+    <p>When Bricks is not active, the page is available under <strong>Tools → Import &amp; Export</strong> instead.</p>
+
+    <!-- WP-CLI -->
+    <h2 id="wp-cli">WP-CLI</h2>
+    <h3>Export</h3>
+    <pre><code># Export to the current directory with a date-stamped filename
+wp bricks export
+
+# Export to a specific path
+wp bricks export /backups/bricks-backup.zip</code></pre>
+
+    <h3>Import</h3>
+    <pre><code># Import with a confirmation prompt
+wp bricks import --file=bricks-export-2026-05-12.zip
+
+# Import without prompting (useful in CI/CD pipelines)
+wp bricks import --file=bricks-export-2026-05-12.zip --yes</code></pre>
+
+    <!-- Filters -->
+    <h2 id="filters">Filters</h2>
+    <p>Three filters let you extend the export/import scope without editing the plugin.</p>
+
+    <h3><code>bricks_ie_options</code> — add or remove option names</h3>
+    <pre><code>add_filter( 'bricks_ie_options', function ( $options ) {
+    $options[] = 'my_custom_bricks_option';
+    return $options;
+} );</code></pre>
+
+    <h3><code>bricks_ie_meta_keys</code> — add or remove post meta keys</h3>
+    <pre><code>add_filter( 'bricks_ie_meta_keys', function ( $keys ) {
+    $keys[] = '_my_custom_bricks_meta';
+    return $keys;
+} );</code></pre>
+
+    <h3><code>bricks_ie_post_types</code> — add or remove exported post types</h3>
+    <pre><code>add_filter( 'bricks_ie_post_types', function ( $types ) {
+    $types[] = 'my_custom_post_type';
+    return $types;
+} );</code></pre>
+
+
+  </main>
+
+  <footer>
+    <p>
+      Licensed under <a href="https://www.gnu.org/licenses/gpl-2.0.html" target="_blank" rel="noopener">GPL-2.0-or-later</a>
+      &nbsp;·&nbsp;
+      Copyright &copy; 2026 <a href="https://katsarov.design" target="_blank" rel="noopener">Katsarov Design</a>
+      &nbsp;·&nbsp;
+      <a href="https://github.com/katsarov/bricks-import-export" target="_blank" rel="noopener">GitHub</a>
+    </p>
+  </footer>
+
+  <script>
+    (function () {
+      const links = document.querySelectorAll('.subnav-inner a');
+      const sections = Array.from(links).map(a => document.querySelector(a.getAttribute('href')));
+
+      function setActive() {
+        const scrollY = window.scrollY + 120;
+        let current = sections[0];
+        sections.forEach(sec => { if (sec && sec.offsetTop <= scrollY) current = sec; });
+        links.forEach(a => {
+          a.classList.toggle('active', a.getAttribute('href') === '#' + (current && current.id));
+        });
+        // scroll active link into view within the subnav
+        const activeLink = document.querySelector('.subnav-inner a.active');
+        if (activeLink) activeLink.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
+
+      window.addEventListener('scroll', setActive, { passive: true });
+      setActive();
+    })();
+  </script>
+</body>
+</html>
