@@ -1,0 +1,48 @@
+# Dependencies
+vendor/
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Composer
+composer.lock
+
+# npm / yarn
+package-lock.json
+yarn.lock
+
+# Environment & config
+.env
+.env.*
+*.local
+
+# IDE & editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# WordPress-specific
+wp-cli.local.yml
+
+# Archives & releases
+*.zip
+*.tar.gz
+*.rar
+
+# PHP unit testing
+.phpunit.result.cache
+phpunit.xml
+coverage/
