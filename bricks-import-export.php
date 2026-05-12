@@ -20,6 +20,18 @@ define( 'BRICKS_IE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BRICKS_IE_URL', plugin_dir_url( __FILE__ ) );
 define( 'BRICKS_IE_BASENAME', plugin_basename( __FILE__ ) );
 
+/**
+ * Check whether the Bricks theme is installed and active.
+ *
+ * Bricks defines BRICKS_VERSION in its functions.php; it is only present
+ * when Bricks (or a child theme whose parent is Bricks) is the active theme.
+ *
+ * @return bool
+ */
+function bricks_ie_is_bricks_active() {
+	return defined( 'BRICKS_VERSION' );
+}
+
 require_once BRICKS_IE_DIR . 'includes/class-bricks-exporter.php';
 require_once BRICKS_IE_DIR . 'includes/class-bricks-importer.php';
 require_once BRICKS_IE_DIR . 'includes/class-admin-page.php';

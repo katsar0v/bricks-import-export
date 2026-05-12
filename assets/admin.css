@@ -67,6 +67,12 @@
 	margin-bottom: 0.3em;
 }
 
+.bricks-ie-section fieldset {
+	border: none;
+	margin: 0;
+	padding: 0;
+}
+
 .bricks-ie-section fieldset[disabled] {
 	opacity: 0.7;
 	pointer-events: none;

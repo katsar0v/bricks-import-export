@@ -37,11 +37,13 @@ class Bricks_IE_Admin_Page {
 	}
 
 	/**
-	 * Register the submenu page under Bricks.
+	 * Register the submenu page under Bricks (or under Tools when Bricks is inactive).
 	 */
 	public function register_page() {
+		$parent_slug = bricks_ie_is_bricks_active() ? 'bricks' : 'tools.php';
+
 		add_submenu_page(
-			'bricks',
+			$parent_slug,
 			__( 'Import & Export', 'bricks-ie' ),
 			__( 'Import & Export', 'bricks-ie' ),
 			'manage_options',
@@ -49,7 +51,9 @@ class Bricks_IE_Admin_Page {
 			array( $this, 'render' )
 		);
 
-		add_action( 'admin_menu', array( $this, 'move_to_last' ), 9999 );
+		if ( bricks_ie_is_bricks_active() ) {
+			add_action( 'admin_menu', array( $this, 'move_to_last' ), 9999 );
+		}
 	}
 
 	/**
@@ -78,7 +82,11 @@ class Bricks_IE_Admin_Page {
 	 * @param string $hook The current admin page hook.
 	 */
 	public function enqueue_assets( $hook ) {
-		if ( 'bricks_page_bricks-import-export' !== $hook ) {
+		$allowed_hooks = array(
+			'bricks_page_bricks-import-export',  // registered under Bricks menu
+			'tools_page_bricks-import-export',   // registered under Tools when Bricks is inactive
+		);
+		if ( ! in_array( $hook, $allowed_hooks, true ) ) {
 			return;
 		}
 
@@ -94,10 +102,20 @@ class Bricks_IE_Admin_Page {
 	 * Render the settings page.
 	 */
 	public function render() {
+		$bricks_active = bricks_ie_is_bricks_active();
 		$import_status = isset( $_GET['bricks_ie_import'] ) ? sanitize_text_field( wp_unslash( $_GET['bricks_ie_import'] ) ) : '';
 		?>
 		<div class="wrap">
 			<h1 style="margin-bottom: 1.5em;"><?php esc_html_e( 'Import & Export', 'bricks-ie' ); ?></h1>
+
+			<?php if ( ! $bricks_active ) : ?>
+				<div class="notice notice-error">
+					<p>
+						<strong><?php esc_html_e( 'Bricks Builder is not active.', 'bricks-ie' ); ?></strong>
+						<?php esc_html_e( 'Please install and activate the Bricks theme to use this plugin.', 'bricks-ie' ); ?>
+					</p>
+				</div>
+			<?php endif; ?>
 
 			<?php if ( 'ok' === $import_status ) : ?>
 				<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Bricks state imported successfully.', 'bricks-ie' ); ?></p></div>
@@ -107,6 +125,7 @@ class Bricks_IE_Admin_Page {
 
 			<div class="bricks-ie-section bricks-ie-section--export">
 				<h2><span class="dashicons dashicons-download" aria-hidden="true"></span> <?php esc_html_e( 'Export Bricks State', 'bricks-ie' ); ?></h2>
+				<fieldset <?php echo $bricks_active ? '' : 'disabled'; ?>>
 				<p class="description">
 					<?php esc_html_e( 'Download a complete snapshot of your Bricks Builder configuration:', 'bricks-ie' ); ?>
 				</p>
@@ -121,10 +140,12 @@ class Bricks_IE_Admin_Page {
 					<input type="hidden" name="action" value="bricks_ie_export">
 					<?php submit_button( __( 'Download Export (.zip)', 'bricks-ie' ), 'primary', 'submit', false ); ?>
 				</form>
+				</fieldset>
 			</div>
 
 			<div class="bricks-ie-section bricks-ie-section--import">
 				<h2><span class="dashicons dashicons-upload" aria-hidden="true"></span> <?php esc_html_e( 'Import Bricks State', 'bricks-ie' ); ?></h2>
+				<fieldset <?php echo $bricks_active ? '' : 'disabled'; ?>>
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data" id="bricks-ie-import-form">
 					<?php wp_nonce_field( 'bricks_ie_import' ); ?>
 					<input type="hidden" name="action" value="bricks_ie_import">
@@ -138,10 +159,12 @@ class Bricks_IE_Admin_Page {
 					<br>
 					<?php submit_button( __( 'Import', 'bricks-ie' ), 'secondary', 'bricks_ie_import_submit', false ); ?>
 				</form>
+				</fieldset>
 			</div>
 
 			<div class="bricks-ie-section bricks-ie-section--cli">
 				<h2><span class="dashicons dashicons-editor-code" aria-hidden="true"></span> <?php esc_html_e( 'WP-CLI Commands', 'bricks-ie' ); ?></h2>
+				<fieldset <?php echo $bricks_active ? '' : 'disabled'; ?>>
 				<p class="description">
 					<?php esc_html_e( 'You can also export and import Bricks state via the command line:', 'bricks-ie' ); ?>
 				</p>
@@ -158,6 +181,7 @@ class Bricks_IE_Admin_Page {
 					<code>wp bricks import --file=bricks-export-2026-05-12.zip --yes</code>
 					<p class="description"><?php esc_html_e( 'Imports without confirmation prompt.', 'bricks-ie' ); ?></p>
 				</div>
+				</fieldset>
 			</div>
 		</div>
 
