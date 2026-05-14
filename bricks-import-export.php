@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Bricks Import & Export
  * Plugin URI:  https://katsarov.design
- * Description: Export and import your Bricks Builder configuration — settings, theme styles, global classes, color palette, pages, and templates — as a single zip archive. Supports both admin UI and WP-CLI.
+ * Description: Export and import your Bricks Builder configuration — settings, Style Manager, theme styles, global classes, variables, pages, and templates — as a single zip archive. Supports both admin UI and WP-CLI.
  * Version:     1.0.0
  * Author:      Katsarov Design
  * Author URI:  https://katsarov.design
@@ -30,6 +30,50 @@ define( 'BRICKS_IE_BASENAME', plugin_basename( __FILE__ ) );
  */
 function bricks_ie_is_bricks_active() {
 	return defined( 'BRICKS_VERSION' );
+}
+
+/**
+ * Get Bricks option names exported and imported by default.
+ *
+ * Media-backed settings such as custom fonts/uploads are intentionally excluded:
+ * this plugin stores database state only and does not bundle upload files.
+ *
+ * @return array
+ */
+function bricks_ie_get_default_option_names() {
+	return array(
+		'bricks_global_settings',
+		'bricks_theme_styles',
+		'bricks_global_classes',
+		'bricks_color_palette',
+		'bricks_style_manager',
+		'bricks_global_variables',
+		'bricks_global_variables_categories',
+		'bricks_components',
+		'bricks_global_queries',
+		'bricks_global_queries_categories',
+		'bricks_global_elements',
+		'bricks_global_classes_categories',
+		'bricks_global_classes_locked',
+		'bricks_global_classes_trash',
+		'bricks_global_pseudo_classes',
+		'bricks_breakpoints',
+		'bricks_icon_sets',
+		'bricks_custom_icons',
+		'bricks_disabled_icon_sets',
+		'bricks_font_favorites',
+		'bricks_sidebars',
+		'bricks_element_manager',
+	);
+}
+
+/**
+ * Get the filtered Bricks option names to export/import.
+ *
+ * @return array
+ */
+function bricks_ie_get_option_names() {
+	return apply_filters( 'bricks_ie_options', bricks_ie_get_default_option_names() );
 }
 
 require_once BRICKS_IE_DIR . 'includes/class-bricks-exporter.php';

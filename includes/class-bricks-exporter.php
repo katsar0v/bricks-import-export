@@ -17,12 +17,7 @@ class Bricks_IE_Exporter {
 	 * @return array
 	 */
 	private function get_option_names() {
-		return apply_filters( 'bricks_ie_options', array(
-			'bricks_global_settings',
-			'bricks_theme_styles',
-			'bricks_global_classes',
-			'bricks_color_palette',
-		) );
+		return bricks_ie_get_option_names();
 	}
 
 	/**
@@ -210,6 +205,7 @@ class Bricks_IE_Exporter {
 
 		return array(
 			'version'        => 1,
+			'plugin_version' => defined( 'BRICKS_IE_VERSION' ) ? BRICKS_IE_VERSION : null,
 			'generated_at'   => gmdate( 'c' ),
 			'site_url'       => home_url(),
 			'bricks_version' => $bricks_theme->exists() ? $bricks_theme->get( 'Version' ) : null,

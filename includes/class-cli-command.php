@@ -81,7 +81,7 @@ class Bricks_IE_CLI_Command {
 		$yes = \WP_CLI\Utils\get_flag_value( $assoc_args, 'yes', false );
 
 		if ( ! $yes ) {
-			WP_CLI::log( 'This will overwrite your current Bricks settings, theme styles, global classes, color palette, and all Bricks template/page content.' );
+			WP_CLI::log( 'This will overwrite your current Bricks settings, Style Manager data, theme styles, global classes, variables, color palettes, components, queries, elements, and all Bricks template/page content.' );
 			WP_CLI::confirm( 'Are you sure you want to proceed?' );
 		}
 

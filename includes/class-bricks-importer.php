@@ -40,12 +40,7 @@ class Bricks_IE_Importer {
 	 * @return array
 	 */
 	private function get_option_names() {
-		return apply_filters( 'bricks_ie_options', array(
-			'bricks_global_settings',
-			'bricks_theme_styles',
-			'bricks_global_classes',
-			'bricks_color_palette',
-		) );
+		return bricks_ie_get_option_names();
 	}
 
 	/**
@@ -121,6 +116,9 @@ class Bricks_IE_Importer {
 		}
 		$posts_imported = $result;
 
+		// Bricks option update hooks may write generated CSS immediately.
+		$this->ensure_bricks_css_dir();
+
 		// 2. Import options.
 		$result = $this->import_options( $zip );
 		if ( is_wp_error( $result ) ) {
@@ -134,10 +132,13 @@ class Bricks_IE_Importer {
 		// 3. Remap post IDs in all restored data.
 		$this->remap_post_ids();
 
-		// 4. Regenerate Bricks code signatures for code/SVG/query-editor elements.
+		// 4. Regenerate Bricks CSS files affected by restored global data.
+		$this->regenerate_bricks_assets();
+
+		// 5. Regenerate Bricks code signatures for code/SVG/query-editor elements.
 		$this->regenerate_code_signatures();
 
-		// 5. Flush cache.
+		// 6. Flush cache.
 		$this->flush_cache();
 
 		return array(
@@ -371,6 +372,56 @@ class Bricks_IE_Importer {
 		}
 
 		return $data;
+	}
+
+	/**
+	 * Regenerate Bricks CSS files affected by imported global options.
+	 */
+	private function regenerate_bricks_assets() {
+		if ( ! $this->ensure_bricks_css_dir() ) {
+			return;
+		}
+
+		if ( class_exists( '\Bricks\Assets_Color_Palettes' ) ) {
+			\Bricks\Assets_Color_Palettes::generate_css_file( get_option( 'bricks_color_palette', array() ) );
+		}
+
+		if ( class_exists( '\Bricks\Assets_Global_Variables' ) ) {
+			\Bricks\Assets_Global_Variables::generate_css_file( get_option( 'bricks_global_variables', array() ) );
+		}
+
+		if ( class_exists( '\Bricks\Assets_Theme_Styles' ) ) {
+			\Bricks\Assets_Theme_Styles::generate_css_file( get_option( 'bricks_theme_styles', array() ) );
+		}
+
+		if ( class_exists( '\Bricks\Assets_Global_Custom_Css' ) ) {
+			\Bricks\Assets_Global_Custom_Css::generate_css_file( get_option( 'bricks_global_settings', array() ) );
+		}
+
+		if ( class_exists( '\Bricks\Assets_Global_Elements' ) ) {
+			\Bricks\Assets_Global_Elements::generate_css_file( get_option( 'bricks_global_elements', array() ) );
+		}
+
+		if ( class_exists( '\Bricks\Ajax' ) && method_exists( '\Bricks\Ajax', 'generate_style_manager_css_file' ) ) {
+			\Bricks\Ajax::generate_style_manager_css_file();
+		}
+	}
+
+	/**
+	 * Ensure Bricks' generated CSS directory exists before calling file writers.
+	 *
+	 * @return bool
+	 */
+	private function ensure_bricks_css_dir() {
+		if ( ! class_exists( '\Bricks\Assets' ) || empty( \Bricks\Assets::$css_dir ) ) {
+			return false;
+		}
+
+		if ( ! is_dir( \Bricks\Assets::$css_dir ) ) {
+			wp_mkdir_p( \Bricks\Assets::$css_dir );
+		}
+
+		return is_dir( \Bricks\Assets::$css_dir );
 	}
 
 	/**

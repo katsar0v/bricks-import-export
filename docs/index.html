@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bricks Import &amp; Export</title>
-  <meta name="description" content="Export and import your entire Bricks Builder configuration — settings, theme styles, global classes, color palette, pages, and templates — as a single zip archive.">
+  <meta name="description" content="Export and import your Bricks Builder configuration — settings, Style Manager, theme styles, global classes, variables, pages, and templates — as a single zip archive.">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -326,7 +326,7 @@
     <!-- Hero -->
     <div class="hero">
       <h1>Bricks Import &amp; Export</h1>
-      <p class="tagline">Export and import your entire Bricks Builder configuration — settings, theme styles, global classes, color palette, pages, and templates — as a single zip archive.</p>
+      <p class="tagline">Export and import your Bricks Builder configuration — settings, Style Manager, theme styles, global classes, variables, pages, and templates — as a single zip archive.</p>
       <div class="badges">
         <img alt="Version 1.0.0" src="https://img.shields.io/badge/version-1.0.0-1f6feb?style=flat-square">
         <img alt="WordPress 6.0+" src="https://img.shields.io/badge/WordPress-6.0%2B-21759b?style=flat-square&logo=wordpress&logoColor=white">
@@ -340,11 +340,11 @@
     <div class="features">
       <div class="feature-card">
         <div class="label">Export</div>
-        <p>Downloads a zip containing Bricks options, all pages, and all Bricks templates with their full meta.</p>
+        <p>Downloads a zip containing Bricks global options, all pages, and all Bricks templates with their full meta.</p>
       </div>
       <div class="feature-card">
         <div class="label">Import</div>
-        <p>Uploads and restores a previously exported archive, remapping post IDs where needed.</p>
+        <p>Uploads and restores a previously exported archive, remapping post IDs and regenerating Bricks CSS/code signatures where possible.</p>
       </div>
       <div class="feature-card">
         <div class="label">Manifest</div>
@@ -385,8 +385,27 @@
         <tr><td><code>bricks_theme_styles</code></td><td>Registered theme styles and their element overrides</td></tr>
         <tr><td><code>bricks_global_classes</code></td><td>All global CSS classes and their style definitions</td></tr>
         <tr><td><code>bricks_color_palette</code></td><td>Custom color palette swatches</td></tr>
+        <tr><td><code>bricks_style_manager</code></td><td>Style Manager settings such as modes and scales</td></tr>
+        <tr><td><code>bricks_global_variables</code></td><td>Global variables used in Bricks styles</td></tr>
+        <tr><td><code>bricks_global_variables_categories</code></td><td>Variable categories, scale metadata, and utility-class configuration</td></tr>
+        <tr><td><code>bricks_components</code></td><td>Bricks components</td></tr>
+        <tr><td><code>bricks_global_queries</code></td><td>Query Manager global queries</td></tr>
+        <tr><td><code>bricks_global_queries_categories</code></td><td>Query Manager categories</td></tr>
+        <tr><td><code>bricks_global_elements</code></td><td>Bricks global elements</td></tr>
+        <tr><td><code>bricks_global_classes_categories</code></td><td>Global class categories</td></tr>
+        <tr><td><code>bricks_global_classes_locked</code></td><td>Locked global class state</td></tr>
+        <tr><td><code>bricks_global_classes_trash</code></td><td>Global class trash state</td></tr>
+        <tr><td><code>bricks_global_pseudo_classes</code></td><td>Custom pseudo selectors</td></tr>
+        <tr><td><code>bricks_breakpoints</code></td><td>Custom Bricks breakpoints</td></tr>
+        <tr><td><code>bricks_icon_sets</code></td><td>Icon set registry data</td></tr>
+        <tr><td><code>bricks_custom_icons</code></td><td>Custom icon registry data</td></tr>
+        <tr><td><code>bricks_disabled_icon_sets</code></td><td>Disabled icon set state</td></tr>
+        <tr><td><code>bricks_font_favorites</code></td><td>Builder font favorites</td></tr>
+        <tr><td><code>bricks_sidebars</code></td><td>Bricks sidebars</td></tr>
+        <tr><td><code>bricks_element_manager</code></td><td>Element Manager state</td></tr>
       </tbody>
     </table>
+    <p>Media-backed custom font files, uploads, generated CSS/cache markers, remote template cache, and builder UI preferences are not bundled.</p>
 
     <h3>Post types</h3>
     <table>
@@ -418,7 +437,10 @@
 │   ├── bricks_global_settings.json
 │   ├── bricks_theme_styles.json
 │   ├── bricks_global_classes.json
-│   └── bricks_color_palette.json
+│   ├── bricks_color_palette.json
+│   ├── bricks_style_manager.json
+│   ├── bricks_global_variables.json
+│   └── ...
 └── posts/
     ├── index.json             Slug, type, and filename for every exported post
     ├── page__home.json

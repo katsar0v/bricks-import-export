@@ -1,7 +1,7 @@
 <h1 align="center">Bricks Import & Export</h1>
 
 <p align="center">
-  Export and import your entire Bricks Builder configuration — settings, theme styles, global classes, color palette, pages, and templates — as a single zip archive. Supports both the WordPress admin UI and WP-CLI.
+  Export and import your Bricks Builder configuration — settings, Style Manager, theme styles, global classes, variables, pages, and templates — as a single zip archive. Supports both the WordPress admin UI and WP-CLI.
 </p>
 
 <p align="center">
@@ -13,7 +13,7 @@
 
 ## Overview
 
-Bricks Import & Export adds a dedicated submenu page under Bricks in the WordPress admin for one-click site backups and migrations. It bundles all Bricks settings, theme styles, global classes, color palette, pages, and templates into a portable zip archive. The same archive can be restored on any WordPress site running the same Bricks version.
+Bricks Import & Export adds a dedicated submenu page under Bricks in the WordPress admin for one-click site backups and migrations. It bundles Bricks settings, Style Manager data, theme styles, global classes, global variables, color palettes, components, query manager data, global elements, pages, and templates into a portable zip archive. The same archive can be restored on any WordPress site running the same Bricks version.
 
 The plugin is intentionally lightweight — no external dependencies, no database tables, and no build step. Everything is plain PHP using the native `ZipArchive` extension and standard WordPress APIs.
 
@@ -21,8 +21,8 @@ The plugin is intentionally lightweight — no external dependencies, no databas
 
 | Area | What it gives you |
 | --- | --- |
-| Export | Downloads a zip containing Bricks options, all pages, and all Bricks templates with their full meta. |
-| Import | Uploads and restores a previously exported archive, remapping post IDs where needed. |
+| Export | Downloads a zip containing Bricks global options, all pages, and all Bricks templates with their full meta. |
+| Import | Uploads and restores a previously exported archive, remapping post IDs and regenerating Bricks CSS/code signatures where possible. |
 | Manifest | Every archive includes a `manifest.json` with plugin version, Bricks version, and export date for version-safe imports. |
 | Admin UI | Clean export/import screen registered as the last submenu item under Bricks. |
 | WP-CLI | `wp bricks export` and `wp bricks import` for scripted backups, migrations, and CI/CD pipelines. |
@@ -49,6 +49,26 @@ The plugin is intentionally lightweight — no external dependencies, no databas
 | `bricks_theme_styles` | Registered theme styles and their element overrides. |
 | `bricks_global_classes` | All global CSS classes and their style definitions. |
 | `bricks_color_palette` | Custom color palette swatches. |
+| `bricks_style_manager` | Style Manager settings such as modes and scales. |
+| `bricks_global_variables` | Global variables used in Bricks styles. |
+| `bricks_global_variables_categories` | Variable categories, scale metadata, and utility-class configuration. |
+| `bricks_components` | Bricks components. |
+| `bricks_global_queries` | Query Manager global queries. |
+| `bricks_global_queries_categories` | Query Manager categories. |
+| `bricks_global_elements` | Bricks global elements. |
+| `bricks_global_classes_categories` | Global class categories. |
+| `bricks_global_classes_locked` | Locked global class state. |
+| `bricks_global_classes_trash` | Global class trash state. |
+| `bricks_global_pseudo_classes` | Custom pseudo selectors. |
+| `bricks_breakpoints` | Custom Bricks breakpoints. |
+| `bricks_icon_sets` | Icon set registry data. |
+| `bricks_custom_icons` | Custom icon registry data. |
+| `bricks_disabled_icon_sets` | Disabled icon set state. |
+| `bricks_font_favorites` | Builder font favorites. |
+| `bricks_sidebars` | Bricks sidebars. |
+| `bricks_element_manager` | Element Manager state. |
+
+Media-backed custom font files, uploads, generated CSS/cache markers, remote template cache, and builder UI preferences are not bundled.
 
 **Post types**
 
@@ -68,7 +88,10 @@ bricks-export-YYYY-MM-DD.zip
 │   ├── bricks_global_settings.json
 │   ├── bricks_theme_styles.json
 │   ├── bricks_global_classes.json
-│   └── bricks_color_palette.json
+│   ├── bricks_color_palette.json
+│   ├── bricks_style_manager.json
+│   ├── bricks_global_variables.json
+│   └── ...
 └── posts/
     ├── index.json             Slug, type, and filename for every exported post
     ├── page__home.json
