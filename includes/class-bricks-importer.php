@@ -134,7 +134,10 @@ class Bricks_IE_Importer {
 		// 3. Remap post IDs in all restored data.
 		$this->remap_post_ids();
 
-		// 4. Flush cache.
+		// 4. Regenerate Bricks code signatures for code/SVG/query-editor elements.
+		$this->regenerate_code_signatures();
+
+		// 5. Flush cache.
 		$this->flush_cache();
 
 		return array(
@@ -368,6 +371,64 @@ class Bricks_IE_Importer {
 		}
 
 		return $data;
+	}
+
+	/**
+	 * Regenerate Bricks code signatures for code, SVG, and query-editor elements.
+	 *
+	 * After import, code execution elements lose their signatures (security
+	 * measure). This method calls Bricks' own regeneration logic to re-sign
+	 * all code instances so they execute without manual re-approval.
+	 *
+	 * During WP-CLI there is no authenticated user, so we temporarily switch
+	 * to the first administrator so that permission checks pass and the
+	 * signatures record a valid user ID.
+	 */
+	private function regenerate_code_signatures() {
+		// Bricks\Admin lives in the Bricks namespace and is only instantiated by
+		// Bricks when is_admin() is true. In WP-CLI (and other headless contexts)
+		// the class is never loaded automatically, so we require the file ourselves.
+		// The Bricks PSR-4 autoloader is registered but won't help here because the
+		// file is only executed inside an is_admin() gate in init.php.
+		if ( ! class_exists( 'Bricks\Admin' ) ) {
+			$bricks_admin_file = get_template_directory() . '/includes/admin.php';
+			if ( file_exists( $bricks_admin_file ) ) {
+				require_once $bricks_admin_file;
+			}
+		}
+
+		if ( ! class_exists( 'Bricks\Admin' ) ) {
+			return;
+		}
+
+		// Preserve the current user (may be 0 in WP-CLI).
+		$original_user = get_current_user_id();
+
+		// If running headless (WP-CLI, cron, …), switch to an administrator
+		// so that current_user_can() checks and get_current_user_id() in
+		// Bricks process_elements_for_signature() work correctly.
+		$switched = false;
+		if ( ! $original_user ) {
+			$admins = get_users( [ 'role' => 'Administrator', 'number' => 1, 'fields' => 'ID' ] );
+			if ( ! empty( $admins ) ) {
+				wp_set_current_user( $admins[0] );
+				$switched = true;
+			}
+		}
+
+		\Bricks\Admin::crawl_and_update_code_signatures( false );
+
+		// Mirror what the Bricks admin AJAX handler does: record the version and
+		// timestamp so that the "Zuletzt generiert" notice in Bricks Settings is
+		// updated immediately after import.
+		if ( defined( 'BRICKS_VERSION' ) ) {
+			update_option( 'bricks_code_signatures_last_generated', BRICKS_VERSION );
+		}
+		update_option( 'bricks_code_signatures_last_generated_timestamp', time() );
+
+		if ( $switched ) {
+			wp_set_current_user( $original_user );
+		}
 	}
 
 	/**
