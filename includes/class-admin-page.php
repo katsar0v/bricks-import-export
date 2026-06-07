@@ -133,7 +133,7 @@ class Bricks_IE_Admin_Page {
 					<li><span class="dashicons dashicons-admin-settings" aria-hidden="true"></span> <?php esc_html_e( 'Bricks settings', 'bricks-ie' ); ?></li>
 					<li><span class="dashicons dashicons-admin-appearance" aria-hidden="true"></span> <?php esc_html_e( 'Style Manager, theme styles, and color palettes', 'bricks-ie' ); ?></li>
 					<li><span class="dashicons dashicons-art" aria-hidden="true"></span> <?php esc_html_e( 'Global classes, variables, components, queries, and elements', 'bricks-ie' ); ?></li>
-					<li><span class="dashicons dashicons-admin-page" aria-hidden="true"></span> <?php esc_html_e( 'Pages and Bricks templates (with all Bricks meta)', 'bricks-ie' ); ?></li>
+					<li><span class="dashicons dashicons-admin-page" aria-hidden="true"></span> <?php esc_html_e( 'Pages, Bricks templates, and enabled post types (with all Bricks meta)', 'bricks-ie' ); ?></li>
 				</ul>
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 					<?php wp_nonce_field( 'bricks_ie_export' ); ?>
@@ -192,7 +192,7 @@ class Bricks_IE_Admin_Page {
 					<h3 id="bricks-ie-modal-title"><?php esc_html_e( 'Confirm Import', 'bricks-ie' ); ?></h3>
 				</div>
 				<div class="bricks-ie-modal__body">
-					<p><?php esc_html_e( 'This will overwrite your current Bricks settings, Style Manager data, theme styles, global classes, variables, color palettes, components, queries, elements, and all Bricks template and page content.', 'bricks-ie' ); ?></p>
+					<p><?php esc_html_e( 'This will overwrite your current Bricks settings, Style Manager data, theme styles, global classes, variables, color palettes, components, queries, elements, Bricks template/page content, and Bricks meta on enabled post types.', 'bricks-ie' ); ?></p>
 					<p><strong><?php esc_html_e( 'This action cannot be undone. Are you sure you want to proceed?', 'bricks-ie' ); ?></strong></p>
 				</div>
 				<div class="bricks-ie-modal__footer">

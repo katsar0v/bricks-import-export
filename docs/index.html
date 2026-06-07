@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bricks Import &amp; Export</title>
-  <meta name="description" content="Export and import your Bricks Builder configuration — settings, Style Manager, theme styles, global classes, variables, pages, and templates — as a single zip archive.">
+  <meta name="description" content="Export and import your Bricks Builder configuration — settings, Style Manager, theme styles, global classes, variables, pages, templates, and Bricks-enabled post types — as a single zip archive.">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -326,9 +326,9 @@
     <!-- Hero -->
     <div class="hero">
       <h1>Bricks Import &amp; Export</h1>
-      <p class="tagline">Export and import your Bricks Builder configuration — settings, Style Manager, theme styles, global classes, variables, pages, and templates — as a single zip archive.</p>
+      <p class="tagline">Export and import your Bricks Builder configuration — settings, Style Manager, theme styles, global classes, variables, pages, templates, and Bricks-enabled post types — as a single zip archive.</p>
       <div class="badges">
-        <img alt="Version 1.0.0" src="https://img.shields.io/badge/version-1.0.0-1f6feb?style=flat-square">
+        <img alt="Version 1.0.1" src="https://img.shields.io/badge/version-1.0.1-1f6feb?style=flat-square">
         <img alt="WordPress 6.0+" src="https://img.shields.io/badge/WordPress-6.0%2B-21759b?style=flat-square&logo=wordpress&logoColor=white">
         <img alt="PHP 7.4+" src="https://img.shields.io/badge/PHP-7.4%2B-777bb4?style=flat-square&logo=php&logoColor=white">
         <img alt="License GPL-2.0-or-later" src="https://img.shields.io/badge/license-GPL--2.0--or--later-0f766e?style=flat-square">
@@ -340,7 +340,7 @@
     <div class="features">
       <div class="feature-card">
         <div class="label">Export</div>
-        <p>Downloads a zip containing Bricks global options, all pages, and all Bricks templates with their full meta.</p>
+        <p>Downloads a zip containing Bricks global options, all pages, all Bricks templates, and Bricks meta on enabled post types.</p>
       </div>
       <div class="feature-card">
         <div class="label">Import</div>
@@ -360,7 +360,7 @@
       </div>
       <div class="feature-card">
         <div class="label">Extensible</div>
-        <p>Three filters let you add post types, meta keys, or options to the export without modifying the plugin.</p>
+        <p>Filters let you add post types, meta keys, options, and import behavior without modifying the plugin.</p>
       </div>
       <div class="feature-card">
         <div class="label">Security</div>
@@ -381,7 +381,7 @@
         <tr><th>Option</th><th>Contains</th></tr>
       </thead>
       <tbody>
-        <tr><td><code>bricks_global_settings</code></td><td>Global Bricks builder settings</td></tr>
+        <tr><td><code>bricks_global_settings</code></td><td>Global Bricks builder settings, including enabled builder post types</td></tr>
         <tr><td><code>bricks_theme_styles</code></td><td>Registered theme styles and their element overrides</td></tr>
         <tr><td><code>bricks_global_classes</code></td><td>All global CSS classes and their style definitions</td></tr>
         <tr><td><code>bricks_color_palette</code></td><td>Custom color palette swatches</td></tr>
@@ -415,6 +415,7 @@
       <tbody>
         <tr><td><code>page</code></td><td>All WordPress pages with Bricks content meta</td></tr>
         <tr><td><code>bricks_template</code></td><td>All Bricks templates (headers, footers, sections, popups, etc.)</td></tr>
+        <tr><td>Bricks-enabled post types</td><td>Additional post types listed in <code>bricks_global_settings.postTypes</code>, such as WooCommerce <code>product</code>, when they carry Bricks meta</td></tr>
       </tbody>
     </table>
 
@@ -445,7 +446,8 @@
     ├── index.json             Slug, type, and filename for every exported post
     ├── page__home.json
     ├── page__about.json
-    └── bricks_template__site-header.json</code></pre>
+    ├── bricks_template__site-header.json
+    └── product__relaxactive.json</code></pre>
 
     <!-- Installation -->
     <h2 id="installation">Installation</h2>
@@ -498,7 +500,7 @@ wp bricks import --file=bricks-export-2026-05-12.zip --yes</code></pre>
 
     <!-- Filters -->
     <h2 id="filters">Filters</h2>
-    <p>Three filters let you extend the export/import scope without editing the plugin.</p>
+    <p>Filters let you extend the export/import scope without editing the plugin.</p>
 
     <h3><code>bricks_ie_options</code> — add or remove option names</h3>
     <pre><code>add_filter( 'bricks_ie_options', function ( $options ) {
@@ -517,6 +519,20 @@ wp bricks import --file=bricks-export-2026-05-12.zip --yes</code></pre>
     $types[] = 'my_custom_post_type';
     return $types;
 } );</code></pre>
+
+    <h3><code>bricks_ie_create_missing_post_types</code> — allow specific post types to be created if missing on import</h3>
+    <pre><code>add_filter( 'bricks_ie_create_missing_post_types', function ( $types ) {
+    $types[] = 'my_custom_post_type';
+    return $types;
+} );</code></pre>
+
+    <h3><code>bricks_ie_update_post_fields_post_types</code> — allow title/status updates during import</h3>
+    <pre><code>add_filter( 'bricks_ie_update_post_fields_post_types', function ( $types ) {
+    $types[] = 'my_custom_post_type';
+    return $types;
+} );</code></pre>
+
+    <p>By default, imports may create and update <code>page</code> and <code>bricks_template</code> records. Enabled dynamic post types like WooCommerce <code>product</code> are matched by slug and only receive Bricks meta; missing products are skipped so catalog data is not created or overwritten accidentally.</p>
 
 
   </main>

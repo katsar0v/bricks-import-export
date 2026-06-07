@@ -1,11 +1,11 @@
 <h1 align="center">Bricks Import & Export</h1>
 
 <p align="center">
-  Export and import your Bricks Builder configuration — settings, Style Manager, theme styles, global classes, variables, pages, and templates — as a single zip archive. Supports both the WordPress admin UI and WP-CLI.
+  Export and import your Bricks Builder configuration — settings, Style Manager, theme styles, global classes, variables, pages, templates, and Bricks-enabled post types — as a single zip archive. Supports both the WordPress admin UI and WP-CLI.
 </p>
 
 <p align="center">
-  <img alt="Version 1.0.0" src="https://img.shields.io/badge/version-1.0.0-1f6feb?style=for-the-badge">
+  <img alt="Version 1.0.1" src="https://img.shields.io/badge/version-1.0.1-1f6feb?style=for-the-badge">
   <img alt="WordPress 6.0+" src="https://img.shields.io/badge/WordPress-6.0%2B-21759b?style=for-the-badge&logo=wordpress&logoColor=white">
   <img alt="PHP 7.4+" src="https://img.shields.io/badge/PHP-7.4%2B-777bb4?style=for-the-badge&logo=php&logoColor=white">
   <img alt="License GPL-2.0-or-later" src="https://img.shields.io/badge/license-GPL--2.0--or--later-0f766e?style=for-the-badge">
@@ -13,7 +13,7 @@
 
 ## Overview
 
-Bricks Import & Export adds a dedicated submenu page under Bricks in the WordPress admin for one-click site backups and migrations. It bundles Bricks settings, Style Manager data, theme styles, global classes, global variables, color palettes, components, query manager data, global elements, pages, and templates into a portable zip archive. The same archive can be restored on any WordPress site running the same Bricks version.
+Bricks Import & Export adds a dedicated submenu page under Bricks in the WordPress admin for one-click site backups and migrations. It bundles Bricks settings, Style Manager data, theme styles, global classes, global variables, color palettes, components, query manager data, global elements, pages, templates, and Bricks meta on enabled post types into a portable zip archive. The same archive can be restored on any WordPress site running the same Bricks version.
 
 The plugin is intentionally lightweight — no external dependencies, no database tables, and no build step. Everything is plain PHP using the native `ZipArchive` extension and standard WordPress APIs.
 
@@ -21,7 +21,7 @@ The plugin is intentionally lightweight — no external dependencies, no databas
 
 | Area | What it gives you |
 | --- | --- |
-| Export | Downloads a zip containing Bricks global options, all pages, and all Bricks templates with their full meta. |
+| Export | Downloads a zip containing Bricks global options, all pages, all Bricks templates, and Bricks meta on enabled post types. |
 | Import | Uploads and restores a previously exported archive, remapping post IDs and regenerating Bricks CSS/code signatures where possible. |
 | Manifest | Every archive includes a `manifest.json` with plugin version, Bricks version, and export date for version-safe imports. |
 | Admin UI | Clean export/import screen registered as the last submenu item under Bricks. |
@@ -45,7 +45,7 @@ The plugin is intentionally lightweight — no external dependencies, no databas
 
 | Option | Contains |
 | --- | --- |
-| `bricks_global_settings` | Global Bricks builder settings. |
+| `bricks_global_settings` | Global Bricks builder settings, including enabled builder post types. |
 | `bricks_theme_styles` | Registered theme styles and their element overrides. |
 | `bricks_global_classes` | All global CSS classes and their style definitions. |
 | `bricks_color_palette` | Custom color palette swatches. |
@@ -76,6 +76,7 @@ Media-backed custom font files, uploads, generated CSS/cache markers, remote tem
 | --- | --- |
 | `page` | All WordPress pages with Bricks content meta. |
 | `bricks_template` | All Bricks templates (headers, footers, sections, popups, etc.). |
+| Bricks-enabled post types | Additional post types listed in `bricks_global_settings.postTypes`, such as WooCommerce `product`, when they carry Bricks meta. |
 
 **Post meta** — `_bricks_page_content_2`, `_bricks_page_header_2`, `_bricks_page_footer_2`, `_bricks_editor_mode`, `_bricks_template_type`, `_bricks_template_settings`, `_bricks_page_settings`
 
@@ -96,7 +97,8 @@ bricks-export-YYYY-MM-DD.zip
     ├── index.json             Slug, type, and filename for every exported post
     ├── page__home.json
     ├── page__about.json
-    └── bricks_template__site-header.json
+    ├── bricks_template__site-header.json
+    └── product__relaxactive.json
 ```
 
 ## Installation
@@ -147,7 +149,7 @@ wp bricks import --file=bricks-export-2026-05-12.zip --yes
 
 ## Filters
 
-Three filters let you extend the export/import scope without editing the plugin.
+Filters let you extend the export/import scope without editing the plugin.
 
 **`bricks_ie_options`** — add or remove WordPress option names:
 
@@ -175,6 +177,26 @@ add_filter( 'bricks_ie_post_types', function ( $types ) {
     return $types;
 } );
 ```
+
+**`bricks_ie_create_missing_post_types`** — allow specific post types to be created if they are missing on import:
+
+```php
+add_filter( 'bricks_ie_create_missing_post_types', function ( $types ) {
+    $types[] = 'my_custom_post_type';
+    return $types;
+} );
+```
+
+**`bricks_ie_update_post_fields_post_types`** — allow title/status updates for specific post types during import:
+
+```php
+add_filter( 'bricks_ie_update_post_fields_post_types', function ( $types ) {
+    $types[] = 'my_custom_post_type';
+    return $types;
+} );
+```
+
+By default, imports may create and update `page` and `bricks_template` records. For enabled dynamic post types like WooCommerce `product`, the importer matches existing posts by slug and only restores Bricks meta; missing products are skipped so catalog data is not created or overwritten accidentally.
 
 ## Architecture
 

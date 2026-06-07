@@ -2,9 +2,9 @@
 /**
  * Bricks Builder exporter.
  *
- * Builds a zip archive containing Bricks options, pages, templates, and all
- * associated meta. The archive can be streamed to the browser (admin) or
- * written to disk (WP-CLI).
+ * Builds a zip archive containing Bricks options, templates, pages, and Bricks
+ * meta on configured post types. The archive can be streamed to the browser
+ * (admin) or written to disk (WP-CLI).
  *
  * @package BricksIE
  */
@@ -43,7 +43,7 @@ class Bricks_IE_Exporter {
 	 * @return array
 	 */
 	private function get_post_types() {
-		return apply_filters( 'bricks_ie_post_types', array( 'page', 'bricks_template' ) );
+		return bricks_ie_get_post_types();
 	}
 
 	/**

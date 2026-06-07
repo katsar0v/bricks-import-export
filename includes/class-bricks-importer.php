@@ -18,6 +18,20 @@ class Bricks_IE_Importer {
 	private $id_map = array();
 
 	/**
+	 * Target post IDs restored during this import.
+	 *
+	 * @var array
+	 */
+	private $imported_post_ids = array();
+
+	/**
+	 * Source site URL recorded in the export manifest.
+	 *
+	 * @var string
+	 */
+	private $source_site_url = '';
+
+	/**
 	 * Get the list of meta keys that the importer handles.
 	 *
 	 * @return array
@@ -44,6 +58,24 @@ class Bricks_IE_Importer {
 	}
 
 	/**
+	 * Get post types that may be created when missing during import.
+	 *
+	 * @return array
+	 */
+	private function get_create_missing_post_types() {
+		return bricks_ie_get_create_missing_post_types();
+	}
+
+	/**
+	 * Get post types whose core post fields may be updated during import.
+	 *
+	 * @return array
+	 */
+	private function get_update_post_fields_post_types() {
+		return bricks_ie_get_update_post_fields_post_types();
+	}
+
+	/**
 	 * Get the current Bricks parent theme version.
 	 *
 	 * @return string|null
@@ -62,6 +94,10 @@ class Bricks_IE_Importer {
 	 * @return array|WP_Error On success returns array with keys 'posts_imported', 'options_imported', 'id_remaps'. On failure a WP_Error.
 	 */
 	public function import_from_zip( $zip_path ) {
+		$this->id_map            = array();
+		$this->imported_post_ids = array();
+		$this->source_site_url   = '';
+
 		if ( ! class_exists( 'ZipArchive' ) ) {
 			return new WP_Error( 'no_ziparchive', __( 'ZipArchive is not available on this server.', 'bricks-ie' ) );
 		}
@@ -86,6 +122,8 @@ class Bricks_IE_Importer {
 			$zip->close();
 			return new WP_Error( 'invalid_manifest', __( 'Invalid manifest.json in archive.', 'bricks-ie' ) );
 		}
+
+		$this->source_site_url = ! empty( $manifest['site_url'] ) ? esc_url_raw( (string) $manifest['site_url'] ) : '';
 
 		$source_bricks = isset( $manifest['bricks_version'] ) ? $manifest['bricks_version'] : null;
 		$target_bricks = $this->get_current_bricks_version();
@@ -132,13 +170,16 @@ class Bricks_IE_Importer {
 		// 3. Remap post IDs in all restored data.
 		$this->remap_post_ids();
 
-		// 4. Regenerate Bricks CSS files affected by restored global data.
+		// 4. Normalize migrated URLs and cached media data.
+		$this->normalize_imported_media();
+
+		// 5. Regenerate Bricks CSS files affected by restored global data.
 		$this->regenerate_bricks_assets();
 
-		// 5. Regenerate Bricks code signatures for code/SVG/query-editor elements.
+		// 6. Regenerate Bricks code signatures for code/SVG/query-editor elements.
 		$this->regenerate_code_signatures();
 
-		// 6. Flush cache.
+		// 7. Flush cache.
 		$this->flush_cache();
 
 		return array(
@@ -253,7 +294,7 @@ class Bricks_IE_Importer {
 			$slug      = $post_data['slug'] ?? $entry['slug'] ?? '';
 			$source_id = isset( $post_data['id'] ) ? (int) $post_data['id'] : 0;
 
-			if ( $type === 'bricks_template' && ! post_type_exists( 'bricks_template' ) ) {
+			if ( ! post_type_exists( $type ) ) {
 				continue;
 			}
 
@@ -266,12 +307,19 @@ class Bricks_IE_Importer {
 
 			if ( $existing ) {
 				$post_id = $existing[0]->ID;
-				wp_update_post( array(
-					'ID'          => $post_id,
-					'post_title'  => $post_data['title'] ?? $existing[0]->post_title,
-					'post_status' => $post_data['status'] ?? $existing[0]->post_status,
-				) );
+
+				if ( in_array( $type, $this->get_update_post_fields_post_types(), true ) ) {
+					wp_update_post( array(
+						'ID'          => $post_id,
+						'post_title'  => $post_data['title'] ?? $existing[0]->post_title,
+						'post_status' => $post_data['status'] ?? $existing[0]->post_status,
+					) );
+				}
 			} else {
+				if ( ! in_array( $type, $this->get_create_missing_post_types(), true ) ) {
+					continue;
+				}
+
 				$post_id = wp_insert_post( array(
 					'post_name'   => $slug,
 					'post_type'   => $type,
@@ -288,10 +336,16 @@ class Bricks_IE_Importer {
 				$this->id_map[ $source_id ] = $post_id;
 			}
 
+			$this->imported_post_ids[] = (int) $post_id;
+
 			$meta = $post_data['meta'] ?? array();
+
+			foreach ( $this->get_meta_keys() as $key ) {
+				delete_post_meta( $post_id, $key );
+			}
+
 			foreach ( $meta as $key => $b64 ) {
 				$value = @unserialize( base64_decode( $b64 ) );
-				delete_post_meta( $post_id, $key );
 				add_post_meta( $post_id, $key, $value );
 			}
 
@@ -372,6 +426,182 @@ class Bricks_IE_Importer {
 		}
 
 		return $data;
+	}
+
+	/**
+	 * Normalize source URLs and cached Bricks media objects in imported data.
+	 */
+	private function normalize_imported_media() {
+		$post_ids = array_values( array_unique( array_map( 'intval', $this->imported_post_ids ) ) );
+
+		foreach ( $post_ids as $post_id ) {
+			foreach ( $this->get_meta_keys() as $key ) {
+				$value = get_post_meta( $post_id, $key, true );
+				if ( '' === $value ) {
+					continue;
+				}
+
+				$new_value = $this->recursive_normalize_imported_media( $value );
+				if ( $new_value !== $value ) {
+					update_post_meta( $post_id, $key, $new_value );
+				}
+			}
+		}
+
+		foreach ( $this->get_option_names() as $name ) {
+			$value = get_option( $name );
+			if ( false === $value ) {
+				continue;
+			}
+
+			$new_value = $this->recursive_normalize_imported_media( $value );
+			if ( $new_value !== $value ) {
+				update_option( $name, $new_value, false );
+			}
+		}
+	}
+
+	/**
+	 * Recursively normalize URLs and media arrays in imported data.
+	 *
+	 * @param mixed $data The data to process.
+	 * @return mixed
+	 */
+	private function recursive_normalize_imported_media( $data ) {
+		if ( is_array( $data ) ) {
+			$data   = $this->normalize_attachment_media_array( $data );
+			$result = array();
+
+			foreach ( $data as $key => $value ) {
+				$result[ $key ] = $this->recursive_normalize_imported_media( $value );
+			}
+
+			return $result;
+		}
+
+		if ( is_object( $data ) ) {
+			$result = clone $data;
+
+			foreach ( get_object_vars( $result ) as $key => $value ) {
+				$result->$key = $this->recursive_normalize_imported_media( $value );
+			}
+
+			return $result;
+		}
+
+		if ( is_string( $data ) ) {
+			return $this->replace_source_site_url( $data );
+		}
+
+		return $data;
+	}
+
+	/**
+	 * Refresh a Bricks-style media array from the local attachment record.
+	 *
+	 * @param array $data Media array candidate.
+	 * @return array
+	 */
+	private function normalize_attachment_media_array( $data ) {
+		if ( empty( $data['id'] ) || ! is_numeric( $data['id'] ) ) {
+			return $data;
+		}
+
+		if ( ! isset( $data['url'] ) && ! isset( $data['full'] ) && ! isset( $data['filename'] ) ) {
+			return $data;
+		}
+
+		$attachment_id = $this->resolve_attachment_id_from_media_array( $data );
+		if ( ! $attachment_id ) {
+			return $data;
+		}
+
+		$data['id'] = $attachment_id;
+
+		$full_url = wp_get_attachment_url( $attachment_id );
+		if ( wp_attachment_is_image( $attachment_id ) ) {
+			$full_image_url = wp_get_attachment_image_url( $attachment_id, 'full' );
+			$full_url       = $full_image_url ? $full_image_url : $full_url;
+		}
+
+		if ( $full_url ) {
+			$full_url_path    = wp_parse_url( $full_url, PHP_URL_PATH );
+			$data['full']     = $full_url;
+			$data['filename'] = basename( $full_url_path ? $full_url_path : $full_url );
+		}
+
+		$size = ! empty( $data['size'] ) && is_scalar( $data['size'] ) ? (string) $data['size'] : 'full';
+		$url  = false;
+
+		if ( wp_attachment_is_image( $attachment_id ) ) {
+			$url = wp_get_attachment_image_url( $attachment_id, $size );
+		}
+
+		if ( ! $url ) {
+			$url = $full_url;
+		}
+
+		if ( $url ) {
+			$data['url'] = $url;
+		}
+
+		return $data;
+	}
+
+	/**
+	 * Resolve a media array to a local attachment ID.
+	 *
+	 * @param array $data Media array candidate.
+	 * @return int
+	 */
+	private function resolve_attachment_id_from_media_array( $data ) {
+		$attachment_id = (int) $data['id'];
+
+		if ( $attachment_id > 0 && 'attachment' === get_post_type( $attachment_id ) ) {
+			return $attachment_id;
+		}
+
+		foreach ( array( 'full', 'url' ) as $key ) {
+			if ( empty( $data[ $key ] ) || ! is_string( $data[ $key ] ) ) {
+				continue;
+			}
+
+			$url = $this->replace_source_site_url( $data[ $key ] );
+			$id  = attachment_url_to_postid( $url );
+
+			if ( $id ) {
+				return (int) $id;
+			}
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Replace exported source-site URLs with the current site URL.
+	 *
+	 * @param string $value String to process.
+	 * @return string
+	 */
+	private function replace_source_site_url( $value ) {
+		if ( '' === $this->source_site_url ) {
+			return $value;
+		}
+
+		$source = untrailingslashit( $this->source_site_url );
+		$target = untrailingslashit( home_url() );
+
+		if ( '' === $source || $source === $target ) {
+			return $value;
+		}
+
+		$search = array_unique( array_filter( array(
+			$source,
+			set_url_scheme( $source, 'http' ),
+			set_url_scheme( $source, 'https' ),
+		) ) );
+
+		return str_replace( $search, array_fill( 0, count( $search ), $target ), $value );
 	}
 
 	/**
