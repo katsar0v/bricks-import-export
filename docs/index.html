@@ -1,572 +1,107 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bricks Import &amp; Export</title>
-  <meta name="description" content="Export and import your Bricks Builder configuration — settings, Style Manager, theme styles, global classes, variables, pages, templates, and Bricks-enabled post types — as a single zip archive.">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Bricks Import &amp; Export 1.1.0</title>
+  <meta name="description" content="Documentation for Bricks Import &amp; Export 1.1.0, audited against Bricks 2.4-beta2.">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg:        #0d1117;
-      --surface:   #161b22;
-      --border:    #30363d;
-      --text:      #e6edf3;
-      --muted:     #8b949e;
-      --accent:    #58a6ff;
-      --accent-dim:#1f6feb;
-      --code-bg:   #1a2030;
-      --radius:    6px;
-      --max-w:     840px;
-    }
-
-    html { scroll-behavior: smooth; }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-      font-size: 16px;
-      line-height: 1.7;
-    }
-
-    /* ── Top bar ─────────────────────────────────────────────── */
-    .topbar {
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 0 1.5rem;
-    }
-    .topbar-inner {
-      max-width: var(--max-w);
-      margin: 0 auto;
-      height: 56px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .topbar-brand {
-      font-weight: 600;
-      font-size: 0.95rem;
-      color: var(--text);
-      text-decoration: none;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .topbar-github {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      color: var(--muted);
-      text-decoration: none;
-      font-size: 0.85rem;
-      transition: color 0.15s;
-    }
-    .topbar-github:hover { color: var(--text); }
-
-    /* ── Main ────────────────────────────────────────────────── */
-    main {
-      max-width: var(--max-w);
-      margin: 0 auto;
-      padding: 3rem 1.5rem 5rem;
-    }
-
-    /* ── Typography ──────────────────────────────────────────── */
-    h2 {
-      font-size: 1.4rem;
-      font-weight: 600;
-      margin-top: 3.5rem;
-      margin-bottom: 1rem;
-      padding-bottom: 0.4rem;
-      border-bottom: 1px solid var(--border);
-      color: var(--accent);
-    }
-    h3 { font-size: 1.05rem; font-weight: 600; margin-top: 1.8rem; margin-bottom: 0.5rem; }
-    p  { margin-bottom: 1rem; }
-    a  { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    ul { padding-left: 1.5rem; margin-bottom: 1rem; }
-    li { margin-bottom: 0.3rem; }
-
-    /* ── Hero ────────────────────────────────────────────────── */
-    .hero {
-      text-align: center;
-      padding: 3rem 0 2.5rem;
-    }
-    .hero h1 {
-      font-size: 2.6rem;
-      font-weight: 700;
-      line-height: 1.2;
-      margin-bottom: 1rem;
-    }
-    .hero .tagline {
-      font-size: 1.1rem;
-      color: var(--muted);
-      max-width: 620px;
-      margin: 0 auto 1.75rem;
-    }
-    .badges {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 0.5rem;
-    }
-    .badges img { height: 22px; }
-
-    /* ── Feature grid ────────────────────────────────────────── */
-    .features {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-      gap: 1rem;
-      margin-top: 1.5rem;
-    }
-    .feature-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.25rem 1.25rem 1rem;
-    }
-    .feature-card .label {
-      font-size: 0.7rem;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--accent);
-      margin-bottom: 0.4rem;
-    }
-    .feature-card p { font-size: 0.9rem; color: var(--muted); margin: 0; }
-
-    /* ── Tables ──────────────────────────────────────────────── */
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 1rem 0 1.5rem;
-      font-size: 0.9rem;
-    }
-    th {
-      background: var(--surface);
-      color: var(--muted);
-      font-weight: 600;
-      text-align: left;
-      padding: 0.6rem 0.9rem;
-      border: 1px solid var(--border);
-      font-size: 0.78rem;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
-    td {
-      padding: 0.6rem 0.9rem;
-      border: 1px solid var(--border);
-      vertical-align: top;
-    }
-    tr:nth-child(even) td { background: #12171e; }
-
-    /* ── Code ────────────────────────────────────────────────── */
-    pre {
-      background: var(--code-bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.1rem 1.25rem;
-      overflow-x: auto;
-      margin: 1rem 0 1.5rem;
-      font-size: 0.855rem;
-      line-height: 1.6;
-    }
-    pre code {
-      background: none;
-      border: none;
-      padding: 0;
-      color: #e6edf3;
-      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-    }
-    code {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 0.15em 0.45em;
-      font-size: 0.85em;
-      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-    }
-
-    /* ── Steps ───────────────────────────────────────────────── */
-    .steps ol { padding-left: 0; list-style: none; counter-reset: steps; }
-    .steps li {
-      counter-increment: steps;
-      display: flex;
-      gap: 1rem;
-      align-items: flex-start;
-      margin-bottom: 0.75rem;
-    }
-    .steps li::before {
-      content: counter(steps);
-      flex-shrink: 0;
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      background: var(--accent-dim);
-      color: #fff;
-      font-size: 0.8rem;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-top: 0.2rem;
-    }
-    .steps li p { margin: 0; }
-
-    /* ── Meta key list ───────────────────────────────────────── */
-    .meta-keys {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.4rem;
-      margin-bottom: 1.5rem;
-    }
-    .meta-keys code {
-      font-size: 0.8rem;
-    }
-
-    /* ── Footer ──────────────────────────────────────────────── */
-    footer {
-      border-top: 1px solid var(--border);
-      padding: 2rem 1.5rem;
-      text-align: center;
-      color: var(--muted);
-      font-size: 0.85rem;
-    }
-    footer a { color: var(--muted); }
-    footer a:hover { color: var(--text); }
-
-    /* ── Secondary nav ─────────────────────────────────────────── */
-    .subnav {
-      background: var(--bg);
-      border-bottom: 1px solid var(--border);
-      position: sticky;
-      top: 56px;
-      z-index: 99;
-    }
-    .subnav-inner {
-      max-width: var(--max-w);
-      margin: 0 auto;
-      padding: 0 1.5rem;
-      display: flex;
-      align-items: center;
-      gap: 0;
-      overflow-x: auto;
-      scrollbar-width: none;
-    }
-    .subnav-inner::-webkit-scrollbar { display: none; }
-    .subnav-inner a {
-      flex-shrink: 0;
-      color: var(--muted);
-      font-size: 0.85rem;
-      font-weight: 500;
-      padding: 0.7rem 0.9rem;
-      text-decoration: none;
-      border-bottom: 2px solid transparent;
-      transition: color 0.15s, border-color 0.15s;
-      white-space: nowrap;
-    }
-    .subnav-inner a:hover {
-      color: var(--text);
-      text-decoration: none;
-    }
-    .subnav-inner a.active {
-      color: var(--accent);
-      border-bottom-color: var(--accent);
-    }
-
-    /* ── Responsive ──────────────────────────────────────────── */
-    @media (max-width: 600px) {
-      .hero h1 { font-size: 2rem; }
-      main { padding: 2rem 1rem 4rem; }
-      .features { grid-template-columns: 1fr; }
-      .subnav-inner { padding: 0 1rem; }
-      .subnav-inner a { padding: 0.65rem 0.7rem; font-size: 0.8rem; }
-    }
+    :root{color-scheme:dark;--bg:#0d1117;--panel:#161b22;--line:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--code:#1a2030;--max:900px}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif}header,main,footer{max-width:var(--max);margin:auto;padding-left:24px;padding-right:24px}header{padding-top:64px;padding-bottom:36px;border-bottom:1px solid var(--line)}h1{font-size:clamp(2rem,6vw,3.4rem);line-height:1.1;margin:0 0 16px}h2{color:var(--accent);font-size:1.45rem;margin:48px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line)}h3{font-size:1.05rem;margin:28px 0 8px}p{margin:0 0 16px}a{color:var(--accent)}ul{padding-left:24px}li{margin:4px 0}.lead{color:var(--muted);font-size:1.1rem;max-width:720px}.notice{border-left:4px solid var(--accent);background:var(--panel);padding:16px 20px;margin-top:24px}.nav{display:flex;gap:16px;flex-wrap:wrap;padding-top:20px}.nav a{text-decoration:none}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px}.card strong{display:block;color:var(--accent);margin-bottom:4px}table{border-collapse:collapse;width:100%;margin:12px 0 20px;font-size:.93rem}th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}th{background:var(--panel);color:var(--muted)}code,pre{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}code{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:2px 5px;font-size:.88em}pre{background:var(--code);border:1px solid var(--line);border-radius:6px;padding:16px;overflow:auto;font-size:.87rem;line-height:1.5}footer{border-top:1px solid var(--line);margin-top:56px;padding-top:24px;padding-bottom:40px;color:var(--muted);font-size:.9rem}@media(max-width:600px){header,main,footer{padding-left:16px;padding-right:16px}table{display:block;overflow-x:auto;white-space:normal}}
   </style>
 </head>
 <body>
+<header>
+  <h1>Bricks Import &amp; Export</h1>
+  <p class="lead">Version 1.1.0 combines Bricks native unified global transfer with a Katsarov payload for pages and supported non-template post types.</p>
+  <div class="notice"><strong>Compatibility boundary:</strong> tested target is <strong>Bricks 2.4-beta2</strong>, native schema <code>bricks/unified-global-transfer</code> v1. Bricks 2.4 stable requires revalidation.</div>
+  <nav class="nav" aria-label="Sections"><a href="#features">Features</a><a href="#coverage">Coverage</a><a href="#archives">Archives</a><a href="#usage">Usage</a><a href="#security">Security</a><a href="#architecture">Architecture</a><a href="#testing">Testing</a></nav>
+</header>
+<main>
+  <h2 id="features">Features</h2>
+  <div class="grid">
+    <div class="card"><strong>Schema 2 by default</strong>Used only after the audited native contract verifies; otherwise export falls back to schema 1 and reports why.</div>
+    <div class="card"><strong>No-write preflight</strong>Every import validates the archive and produces a confirmation-bound plan before mutation.</div>
+    <div class="card"><strong>Admin and CLI</strong>Admin import is JavaScript-staged; WP-CLI uses the same validator, plan, and importer.</div>
+    <div class="card"><strong>Structurally inspected native package</strong>Bricks-owned data stays inside <code>bricks/package.zip</code>; its structure, manifest, and hashes are checked, but native contents are not semantically rewritten.</div>
+  </div>
 
-  <header class="topbar">
-    <div class="topbar-inner">
-      <a class="topbar-brand" href="#">
-        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="2" y="2" width="12" height="12" rx="1" stroke="#58a6ff" stroke-width="1.4"/>
-          <path d="M5 5h6M5 8h4M5 11h5" stroke="#58a6ff" stroke-width="1.2" stroke-linecap="round"/>
-        </svg>
-        Bricks Import &amp; Export
-      </a>
-      <a class="topbar-github" href="https://github.com/katsar0v/bricks-import-export" target="_blank" rel="noopener">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
-        </svg>
-        View on GitHub
-      </a>
-    </div>
-  </header>
+  <h2 id="requirements">Requirements</h2>
+  <ul><li>WordPress 6.0+ and PHP 7.4+.</li><li><code>ZipArchive</code> with callable <code>getExternalAttributesIndex()</code> and <code>ZipArchive::OPSYS_UNIX</code>; this capability is checked at runtime.</li><li>Administrator access. Native domains can require Bricks manager permissions, uploads, SVG upload, or code-execution permission.</li></ul>
 
-  <nav class="subnav" aria-label="Page sections">
-    <div class="subnav-inner">
-      <a href="#features">Features</a>
-      <a href="#what-gets-exported">What Gets Exported</a>
-      <a href="#archive-structure">Archive Structure</a>
-      <a href="#installation">Installation</a>
-      <a href="#admin-ui">Admin UI</a>
-      <a href="#wp-cli">WP-CLI</a>
-      <a href="#filters">Filters</a>
-    </div>
-  </nav>
+  <h2 id="coverage">Coverage</h2>
+  <p><strong>Native schema 2 domains:</strong> color palettes, theme styles, classes, variables, custom fonts, icon manager, breakpoints, global queries, components, templates, settings, and custom capabilities. Templates are native-owned only.</p>
+  <p><strong>Katsarov-owned content:</strong> ordinary pages and configured Bricks-enabled non-template post types. Missing dynamic/CPT records are skipped by default; pages may be created according to policy.</p>
+  <p><strong>Schema-2 omissions:</strong> general media, template conditions, <code>bricks_style_manager</code>, global pseudo classes, and UI/workflow state including Element Manager, font favorites, and locked/trashed classes. Font/icon assets can still be included in the native package. Remote template image download is disabled.</p>
+  <p>Typed references are mapped only in known fields. Ambiguous or unresolved references block the affected page. Existing media references may be normalized, but files are never downloaded. Bricks CSS is regenerated through a verified route after import; CSS verification failures are partial and report <code>assets</code> in <code>failed</code>.</p>
 
-  <main>
-
-    <!-- Hero -->
-    <div class="hero">
-      <h1>Bricks Import &amp; Export</h1>
-      <p class="tagline">Export and import your Bricks Builder configuration — settings, Style Manager, theme styles, global classes, variables, pages, templates, and Bricks-enabled post types — as a single zip archive.</p>
-      <div class="badges">
-        <img alt="Version 1.0.1" src="https://img.shields.io/badge/version-1.0.1-1f6feb?style=flat-square">
-        <img alt="WordPress 6.0+" src="https://img.shields.io/badge/WordPress-6.0%2B-21759b?style=flat-square&logo=wordpress&logoColor=white">
-        <img alt="PHP 7.4+" src="https://img.shields.io/badge/PHP-7.4%2B-777bb4?style=flat-square&logo=php&logoColor=white">
-        <img alt="License GPL-2.0-or-later" src="https://img.shields.io/badge/license-GPL--2.0--or--later-0f766e?style=flat-square">
-      </div>
-    </div>
-
-    <!-- Features -->
-    <h2 id="features">Features</h2>
-    <div class="features">
-      <div class="feature-card">
-        <div class="label">Export</div>
-        <p>Downloads a zip containing Bricks global options, all pages, all Bricks templates, and Bricks meta on enabled post types.</p>
-      </div>
-      <div class="feature-card">
-        <div class="label">Import</div>
-        <p>Uploads and restores a previously exported archive, remapping post IDs and regenerating Bricks CSS/code signatures where possible.</p>
-      </div>
-      <div class="feature-card">
-        <div class="label">Manifest</div>
-        <p>Every archive includes a <code>manifest.json</code> with plugin version, Bricks version, and export date for version-safe imports.</p>
-      </div>
-      <div class="feature-card">
-        <div class="label">Admin UI</div>
-        <p>Clean export/import screen registered as the last submenu item under Bricks.</p>
-      </div>
-      <div class="feature-card">
-        <div class="label">WP-CLI</div>
-        <p><code>wp bricks export</code> and <code>wp bricks import</code> for scripted backups, migrations, and CI/CD pipelines.</p>
-      </div>
-      <div class="feature-card">
-        <div class="label">Extensible</div>
-        <p>Filters let you add post types, meta keys, options, and import behavior without modifying the plugin.</p>
-      </div>
-      <div class="feature-card">
-        <div class="label">Security</div>
-        <p>All admin actions are protected by <code>manage_options</code> capability checks and WordPress nonces.</p>
-      </div>
-      <div class="feature-card">
-        <div class="label">Lightweight</div>
-        <p>No external dependencies, no database tables, no build step. Plain PHP using <code>ZipArchive</code> and standard WordPress APIs.</p>
-      </div>
-    </div>
-
-    <!-- What Gets Exported -->
-    <h2 id="what-gets-exported">What Gets Exported</h2>
-
-    <h3>Options</h3>
-    <table>
-      <thead>
-        <tr><th>Option</th><th>Contains</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><code>bricks_global_settings</code></td><td>Global Bricks builder settings, including enabled builder post types</td></tr>
-        <tr><td><code>bricks_theme_styles</code></td><td>Registered theme styles and their element overrides</td></tr>
-        <tr><td><code>bricks_global_classes</code></td><td>All global CSS classes and their style definitions</td></tr>
-        <tr><td><code>bricks_color_palette</code></td><td>Custom color palette swatches</td></tr>
-        <tr><td><code>bricks_style_manager</code></td><td>Style Manager settings such as modes and scales</td></tr>
-        <tr><td><code>bricks_global_variables</code></td><td>Global variables used in Bricks styles</td></tr>
-        <tr><td><code>bricks_global_variables_categories</code></td><td>Variable categories, scale metadata, and utility-class configuration</td></tr>
-        <tr><td><code>bricks_components</code></td><td>Bricks components</td></tr>
-        <tr><td><code>bricks_global_queries</code></td><td>Query Manager global queries</td></tr>
-        <tr><td><code>bricks_global_queries_categories</code></td><td>Query Manager categories</td></tr>
-        <tr><td><code>bricks_global_elements</code></td><td>Bricks global elements</td></tr>
-        <tr><td><code>bricks_global_classes_categories</code></td><td>Global class categories</td></tr>
-        <tr><td><code>bricks_global_classes_locked</code></td><td>Locked global class state</td></tr>
-        <tr><td><code>bricks_global_classes_trash</code></td><td>Global class trash state</td></tr>
-        <tr><td><code>bricks_global_pseudo_classes</code></td><td>Custom pseudo selectors</td></tr>
-        <tr><td><code>bricks_breakpoints</code></td><td>Custom Bricks breakpoints</td></tr>
-        <tr><td><code>bricks_icon_sets</code></td><td>Icon set registry data</td></tr>
-        <tr><td><code>bricks_custom_icons</code></td><td>Custom icon registry data</td></tr>
-        <tr><td><code>bricks_disabled_icon_sets</code></td><td>Disabled icon set state</td></tr>
-        <tr><td><code>bricks_font_favorites</code></td><td>Builder font favorites</td></tr>
-        <tr><td><code>bricks_sidebars</code></td><td>Bricks sidebars</td></tr>
-        <tr><td><code>bricks_element_manager</code></td><td>Element Manager state</td></tr>
-      </tbody>
-    </table>
-    <p>Media-backed custom font files, uploads, generated CSS/cache markers, remote template cache, and builder UI preferences are not bundled.</p>
-
-    <h3>Post types</h3>
-    <table>
-      <thead>
-        <tr><th>Post type</th><th>Description</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><code>page</code></td><td>All WordPress pages with Bricks content meta</td></tr>
-        <tr><td><code>bricks_template</code></td><td>All Bricks templates (headers, footers, sections, popups, etc.)</td></tr>
-        <tr><td>Bricks-enabled post types</td><td>Additional post types listed in <code>bricks_global_settings.postTypes</code>, such as WooCommerce <code>product</code>, when they carry Bricks meta</td></tr>
-      </tbody>
-    </table>
-
-    <h3>Post meta</h3>
-    <div class="meta-keys">
-      <code>_bricks_page_content_2</code>
-      <code>_bricks_page_header_2</code>
-      <code>_bricks_page_footer_2</code>
-      <code>_bricks_editor_mode</code>
-      <code>_bricks_template_type</code>
-      <code>_bricks_template_settings</code>
-      <code>_bricks_page_settings</code>
-    </div>
-
-    <!-- Archive Structure -->
-    <h2 id="archive-structure">Archive Structure</h2>
-    <pre><code>bricks-export-YYYY-MM-DD.zip
-├── manifest.json              Plugin version, Bricks version, export timestamp
+  <h2 id="archives">Archive schemas</h2>
+  <h3>Schema 1 — legacy compatibility</h3>
+  <pre>bricks-export.zip
+├── manifest.json
 ├── options/
 │   ├── bricks_global_settings.json
-│   ├── bricks_theme_styles.json
-│   ├── bricks_global_classes.json
-│   ├── bricks_color_palette.json
-│   ├── bricks_style_manager.json
-│   ├── bricks_global_variables.json
-│   └── ...
+│   └── … .json
 └── posts/
-    ├── index.json             Slug, type, and filename for every exported post
+    ├── index.json
     ├── page__home.json
-    ├── page__about.json
-    ├── bricks_template__site-header.json
-    └── product__relaxactive.json</code></pre>
+    └── bricks_template__site-header.json</pre>
+  <p>Schema 1 is the exact-version legacy format and retains its raw options, template posts, and serialized legacy meta compatibility path.</p>
+  <h3>Schema 2 — native transfer</h3>
+  <pre>bricks-export-YYYY-MM-DD.zip
+├── manifest.json
+├── bricks/
+│   ├── package.zip
+│   └── package.sha256
+└── katsarov/
+    ├── export-warnings.json
+    └── posts/
+        ├── index.json
+        ├── page__home.json
+        └── product__catalog-item.json</pre>
+  <p>The outer manifest records the native schema and package SHA-256. Native package bytes are structurally inspected as a ZIP, including its manifest, entries, and hashes, but are not semantically rewritten. Template-condition sidecars are not applied automatically.</p>
 
-    <!-- Installation -->
-    <h2 id="installation">Installation</h2>
-    <p>Place the plugin directory inside WordPress:</p>
-    <pre><code>wp-content/plugins/bricks-import-export</code></pre>
-    <p>Activate via WP-CLI:</p>
-    <pre><code>wp plugin activate bricks-import-export</code></pre>
-    <p>Or activate from <strong>Plugins</strong> in the WordPress admin.</p>
+  <h2 id="usage">Usage</h2>
+  <h3>Admin</h3>
+  <p>Open <strong>Bricks → Import &amp; Export</strong>. Export is direct. For import, choose a ZIP, review the JavaScript preflight, acknowledge the backup and warnings, then confirm. The non-JavaScript form refuses to mutate the site.</p>
+  <h3>WP-CLI</h3>
+  <p>Use a real administrator identity; the plugin never chooses the first administrator.</p>
+  <pre># Export to the default date-stamped filename
+wp bricks export --user=administrator
 
-    <h3>Requirements</h3>
-    <table>
-      <thead>
-        <tr><th>Requirement</th><th>Version</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>WordPress</td><td>6.0 or newer</td></tr>
-        <tr><td>PHP</td><td>7.4 or newer</td></tr>
-        <tr><td>PHP extension</td><td><code>ZipArchive</code> (enabled by default on most hosts)</td></tr>
-        <tr><td>Theme</td><td>Bricks Builder (any version)</td></tr>
-        <tr><td>Permissions</td><td>Administrator role</td></tr>
-      </tbody>
-    </table>
+# Export to an explicit path
+wp bricks export /backups/bricks.zip --user=administrator
 
-    <!-- Admin UI -->
-    <h2 id="admin-ui">Admin UI</h2>
-    <div class="steps">
-      <ol>
-        <li><p>Open <strong>Bricks → Import &amp; Export</strong> in the WordPress admin sidebar.</p></li>
-        <li><p>Click <strong>Export</strong> to download the current Bricks state as a zip archive.</p></li>
-        <li><p>To restore, choose a previously exported zip under <strong>Import</strong> and click <strong>Import</strong>.</p></li>
-      </ol>
-    </div>
-    <p>When Bricks is not active, the page is available under <strong>Tools → Import &amp; Export</strong> instead.</p>
+# Export with explicitly authorized sensitive settings
+wp bricks export /backups/bricks.zip --user=administrator --allow-sensitive-settings
 
-    <!-- WP-CLI -->
-    <h2 id="wp-cli">WP-CLI</h2>
-    <h3>Export</h3>
-    <pre><code># Export to the current directory with a date-stamped filename
-wp bricks export
+# Preflight only
+wp bricks import --file=/backups/bricks.zip --user=administrator --dry-run
 
-# Export to a specific path
-wp bricks export /backups/bricks-backup.zip</code></pre>
+# Default skip policy
+wp bricks import --file=/backups/bricks.zip --user=administrator \
+  --backup-acknowledged --yes
 
-    <h3>Import</h3>
-    <pre><code># Import with a confirmation prompt
-wp bricks import --file=bricks-export-2026-05-12.zip
+# Explicit replacement
+wp bricks import --file=/backups/bricks.zip --user=administrator \
+  --conflict=replace --allow-overwrite --backup-acknowledged --yes</pre>
+  <p>The sole plugin-specific export flag is <code>--allow-sensitive-settings</code>; without it, CLI exports are redacted by default. Import flags: <code>--file</code>, <code>--dry-run</code>, <code>--conflict=skip|replace</code>, <code>--allow-overwrite</code>, <code>--allow-sensitive-settings</code>, <code>--backup-acknowledged</code>, <code>--accept-warnings</code>, and <code>--yes</code>. Dry-run never writes. Blocked, failed, partial, and cancelled imports return non-zero status.</p>
 
-# Import without prompting (useful in CI/CD pipelines)
-wp bricks import --file=bricks-export-2026-05-12.zip --yes</code></pre>
+  <h2 id="security">Security and failure behavior</h2>
+  <ul><li>Export redaction and import authorization are separate controls. API keys, custom code, and template passwords are redacted from exports by default; explicit export opt-in is available through WP-CLI or a programmatic request.</li><li>On Bricks 2.4-beta2, Bricks cannot filter keys inside the native settings payload, so every incoming native settings selector requires <code>allow_sensitive_settings</code>. Schema 1 recursively strips nested <code>apiKey</code>, <code>customCode</code>, <code>password</code>, and <code>pass</code> keys while preserving ordinary siblings; other sensitive settings are stripped by default.</li><li>Imported code is not automatically approved, signed, or executed; an administrator must review it. No automatic code-signature approval occurs.</li><li>Preflight is mandatory; archive and plan SHA-256 hashes must match the confirmed values.</li><li>Conflict default is <code>skip</code>; <code>replace</code> requires <code>--allow-overwrite</code> or the equivalent admin confirmation.</li><li>Successful schema 1 and schema 2 exports replace a destination only after temporary archive close/stat and validation; failures preserve the old destination.</li><li>Imports use a site-wide lease and staged session cleanup. They are not full transactions; partial results distinguish core post and metadata mutations and do not claim incomplete work.</li></ul>
 
-    <!-- Filters -->
-    <h2 id="filters">Filters</h2>
-    <p>Filters let you extend the export/import scope without editing the plugin.</p>
+  <h2 id="architecture">Architecture</h2>
+  <pre>Admin UI / WP-CLI
+        ↓
+Exporter / Importer
+   ├── Archive Validator       ZIP/schema/resource validation
+   ├── Bricks Transfer Adapter native abilities/public contract
+   └── Page/CPT orchestration  mappings, leases, CSS regeneration</pre>
+  <table><thead><tr><th>File</th><th>Responsibility</th></tr></thead><tbody><tr><td><code>bricks-import-export.php</code></td><td>Bootstrap, hooks, AJAX, CLI registration</td></tr><tr><td><code>includes/class-bricks-exporter.php</code></td><td>Schema 1/2 archive creation</td></tr><tr><td><code>includes/class-bricks-importer.php</code></td><td>Preflight, sessions, import state machine</td></tr><tr><td><code>includes/class-archive-validator.php</code></td><td>ZIP/schema/resource validation</td></tr><tr><td><code>includes/class-bricks-transfer-adapter.php</code></td><td>Native Bricks boundary and CSS regeneration</td></tr><tr><td><code>includes/class-admin-page.php</code>, <code>assets/admin.js</code></td><td>Staged admin workflow and progress UI</td></tr><tr><td><code>includes/class-cli-command.php</code></td><td>WP-CLI commands and exit behavior</td></tr></tbody></table>
 
-    <h3><code>bricks_ie_options</code> — add or remove option names</h3>
-    <pre><code>add_filter( 'bricks_ie_options', function ( $options ) {
-    $options[] = 'my_custom_bricks_option';
-    return $options;
-} );</code></pre>
-
-    <h3><code>bricks_ie_meta_keys</code> — add or remove post meta keys</h3>
-    <pre><code>add_filter( 'bricks_ie_meta_keys', function ( $keys ) {
-    $keys[] = '_my_custom_bricks_meta';
-    return $keys;
-} );</code></pre>
-
-    <h3><code>bricks_ie_post_types</code> — add or remove exported post types</h3>
-    <pre><code>add_filter( 'bricks_ie_post_types', function ( $types ) {
-    $types[] = 'my_custom_post_type';
-    return $types;
-} );</code></pre>
-
-    <h3><code>bricks_ie_create_missing_post_types</code> — allow specific post types to be created if missing on import</h3>
-    <pre><code>add_filter( 'bricks_ie_create_missing_post_types', function ( $types ) {
-    $types[] = 'my_custom_post_type';
-    return $types;
-} );</code></pre>
-
-    <h3><code>bricks_ie_update_post_fields_post_types</code> — allow title/status updates during import</h3>
-    <pre><code>add_filter( 'bricks_ie_update_post_fields_post_types', function ( $types ) {
-    $types[] = 'my_custom_post_type';
-    return $types;
-} );</code></pre>
-
-    <p>By default, imports may create and update <code>page</code> and <code>bricks_template</code> records. Enabled dynamic post types like WooCommerce <code>product</code> are matched by slug and only receive Bricks meta; missing products are skipped so catalog data is not created or overwritten accidentally.</p>
-
-
-  </main>
-
-  <footer>
-    <p>
-      Licensed under <a href="https://www.gnu.org/licenses/gpl-2.0.html" target="_blank" rel="noopener">GPL-2.0-or-later</a>
-      &nbsp;·&nbsp;
-      Copyright &copy; 2026 <a href="https://katsarov.design" target="_blank" rel="noopener">Katsarov Design</a>
-      &nbsp;·&nbsp;
-      <a href="https://github.com/katsar0v/bricks-import-export" target="_blank" rel="noopener">GitHub</a>
-    </p>
-  </footer>
-
-  <script>
-    (function () {
-      const links = document.querySelectorAll('.subnav-inner a');
-      const sections = Array.from(links).map(a => document.querySelector(a.getAttribute('href')));
-
-      function setActive() {
-        const scrollY = window.scrollY + 120;
-        let current = sections[0];
-        sections.forEach(sec => { if (sec && sec.offsetTop <= scrollY) current = sec; });
-        links.forEach(a => {
-          a.classList.toggle('active', a.getAttribute('href') === '#' + (current && current.id));
-        });
-        // scroll active link into view within the subnav
-        const activeLink = document.querySelector('.subnav-inner a.active');
-        if (activeLink) activeLink.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-      }
-
-      window.addEventListener('scroll', setActive, { passive: true });
-      setActive();
-    })();
-  </script>
+  <h2 id="testing">Testing</h2>
+  <p>The isolated suite passes <strong>282/282 under <code>E_ALL</code></strong>. A fully disposable integration run passes on <strong>WordPress 7.0.3, Bricks 2.4-beta2, and PHP 8.4.24</strong>: schema 2 authorized replacement removes absent allowlisted Bricks meta, writes incoming meta, preserves unrelated meta, and regenerates CSS; schema 1 recursively strips nested <code>apiKey</code>, <code>customCode</code>, <code>password</code>, and <code>pass</code> while preserving ordinary siblings. It also verifies no CLI warnings or temporary ZIP leaks, frontend HTTP 200, clean logs, and cleanup. Plugin-wide PHP lint remains <strong>24/24</strong>; Node, git-diff, and root integration checks pass. Bricks 2.4 stable, PHP 7.4 runtime execution, and builder UI interaction remain unclaimed.</p>
+</main>
+<footer>GPL-2.0-or-later · Copyright © 2026 Katsarov Design</footer>
 </body>
 </html>
