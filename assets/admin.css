@@ -82,6 +82,126 @@
 	margin-bottom: 0.5em;
 }
 
+.bricks-ie-label-with-help {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.2em;
+}
+
+.bricks-ie-help-anchor {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+}
+
+.bricks-ie-help {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: #2271b1;
+	cursor: help;
+	line-height: 1;
+}
+
+.bricks-ie-help:hover,
+.bricks-ie-help:focus {
+	color: #135e96;
+}
+
+.bricks-ie-help:focus {
+	box-shadow: 0 0 0 1px #2271b1;
+	outline: 2px solid transparent;
+}
+
+.bricks-ie-help .dashicons {
+	width: 16px;
+	height: 16px;
+	font-size: 16px;
+	vertical-align: middle;
+}
+
+.bricks-ie-tooltip {
+	position: absolute;
+	z-index: 10;
+	top: 50%;
+	inset-inline-start: calc(100% + 8px);
+	width: 280px;
+	max-width: calc(100vw - 4em);
+	box-sizing: border-box;
+	padding: 8px 10px;
+	border-radius: 3px;
+	background: #1d2327;
+	color: #fff;
+	font-size: 12px;
+	font-weight: 400;
+	line-height: 1.5;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+	transform: translateY(-50%);
+}
+
+.bricks-ie-tooltip::before {
+	position: absolute;
+	top: 50%;
+	inset-inline-start: -5px;
+	width: 10px;
+	height: 10px;
+	background: #1d2327;
+	content: '';
+	transform: translateY(-50%) rotate(45deg);
+}
+
+@media (max-width: 600px) {
+	.bricks-ie-tooltip {
+		top: auto;
+		bottom: calc(100% + 8px);
+		inset-inline-start: auto;
+		inset-inline-end: 0;
+		transform: none;
+	}
+
+	.bricks-ie-tooltip::before {
+		top: auto;
+		bottom: -5px;
+		inset-inline-start: auto;
+		inset-inline-end: 8px;
+		transform: rotate(45deg);
+	}
+}
+
+.bricks-ie-not-supported {
+	color: #8a2424;
+}
+
+.bricks-ie-preflight-review {
+	max-height: 300px;
+	overflow: auto;
+	margin-bottom: 1em;
+	padding: 0.8em 1em;
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+}
+
+.bricks-ie-preflight-review h4 {
+	margin: 0.3em 0 0.5em;
+}
+
+.bricks-ie-preflight-review section {
+	margin-top: 0.8em;
+}
+
+.bricks-ie-preflight-review ul {
+	margin: 0.2em 0 0 1.2em;
+}
+
+.bricks-ie-preflight-blocked {
+	padding: 0.7em;
+	color: #8a2424;
+	background: #fcf0f1;
+	border: 1px solid #d63638;
+}
+
 .bricks-ie-cli-examples {
 	margin-top: 1em;
 	padding: 1em 1.2em;
@@ -184,4 +304,147 @@
 	border-top: 1px solid #f0f0f1;
 	background: #f6f7f7;
 	border-radius: 0 0 8px 8px;
+}
+
+.bricks-ie-modal--progress {
+	width: 560px;
+}
+
+.bricks-ie-modal--progress .bricks-ie-modal__header .dashicons {
+	color: #2271b1;
+}
+
+.bricks-ie-progress-modal-state {
+	display: none;
+}
+
+#bricks-ie-progress-modal.is-running .bricks-ie-modal--progress .bricks-ie-modal__header .dashicons {
+	animation: bricks-ie-spin 900ms linear infinite;
+}
+
+#bricks-ie-progress-modal.is-complete .bricks-ie-modal--progress .bricks-ie-modal__header .dashicons {
+	color: #00a32a;
+	animation: none;
+}
+
+#bricks-ie-progress-modal.is-error .bricks-ie-modal--progress .bricks-ie-modal__header .dashicons {
+	color: #b32d2e;
+	animation: none;
+}
+
+#bricks-ie-progress-modal.is-cancelled .bricks-ie-modal--progress .bricks-ie-modal__header .dashicons,
+#bricks-ie-progress-modal.is-partial .bricks-ie-modal--progress .bricks-ie-modal__header .dashicons {
+	color: #dba617;
+	animation: none;
+}
+
+.bricks-ie-progress {
+	margin-bottom: 1.2em;
+}
+
+.bricks-ie-progress__meta {
+	display: flex;
+	justify-content: space-between;
+	gap: 1em;
+	margin-bottom: 0.6em;
+	color: #2c3338;
+}
+
+.bricks-ie-progress__bar {
+	overflow: hidden;
+	height: 10px;
+	background: #dcdcde;
+	border-radius: 999px;
+}
+
+.bricks-ie-progress__bar span {
+	display: block;
+	width: 0;
+	height: 100%;
+	background: linear-gradient(90deg, #2271b1, #00a32a);
+	border-radius: inherit;
+	transition: width 180ms ease;
+}
+
+.bricks-ie-progress-steps {
+	margin: 0;
+	padding: 0;
+	list-style: none !important;
+	list-style-type: none !important;
+	display: grid;
+	gap: 0.45em;
+}
+
+.bricks-ie-progress-step {
+	display: flex;
+	align-items: center;
+	gap: 0.6em;
+	margin: 0;
+	color: #646970;
+	list-style: none !important;
+}
+
+.bricks-ie-progress-step__icon {
+	width: 22px;
+	height: 22px;
+	font-size: 20px;
+	line-height: 22px;
+	color: #8c8f94;
+	flex: 0 0 auto;
+	text-align: center;
+	transition: color 160ms ease, transform 160ms ease;
+}
+
+.bricks-ie-progress-step.is-current {
+	color: #1d2327;
+	font-weight: 600;
+}
+
+.bricks-ie-progress-step.is-current .bricks-ie-progress-step__icon {
+	color: #2271b1;
+	animation: bricks-ie-spin 700ms linear infinite;
+}
+
+.bricks-ie-progress-step.is-complete {
+	color: #1d2327;
+}
+
+.bricks-ie-progress-step.is-complete .bricks-ie-progress-step__icon {
+	color: #00a32a;
+	animation: none;
+}
+
+.bricks-ie-progress-step.is-error {
+	color: #b32d2e;
+	font-weight: 600;
+}
+
+.bricks-ie-progress-step.is-error .bricks-ie-progress-step__icon {
+	color: #b32d2e;
+	animation: none;
+}
+
+.bricks-ie-progress-summary,
+.bricks-ie-progress-error {
+	margin-top: 1em;
+	padding: 0.8em 1em;
+	border-radius: 4px;
+}
+
+.bricks-ie-progress-summary {
+	background: #edfaef;
+	border: 1px solid #8cce97;
+	color: #1e4620;
+}
+
+.bricks-ie-progress-error {
+	background: #fcf0f1;
+	border: 1px solid #d63638;
+	color: #8a2424;
+}
+
+@keyframes bricks-ie-spin {
+	to {
+		transform: rotate(360deg);
+	}
 }
