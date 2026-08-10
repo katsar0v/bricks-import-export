@@ -112,6 +112,8 @@ class Bricks_IE_CLI_Command {
 	 * : Required with --conflict=replace.
 	 * [--allow-sensitive-settings]
 	 * : Include sensitive settings when supported by the archive.
+	 * [--import-images]
+	 * : Import or reconnect images referenced by Bricks templates.
 	 * [--backup-acknowledged]
 	 * : Acknowledge that a backup exists before mutation.
 	 * [--accept-warnings]
@@ -145,6 +147,7 @@ class Bricks_IE_CLI_Command {
 		$policy = array( 'conflict_mode' => $conflict );
 		if ( $this->flag( $assoc_args, 'allow-overwrite' ) ) $policy['allow_overwrite'] = true;
 		if ( $this->flag( $assoc_args, 'allow-sensitive-settings' ) ) $policy['allow_sensitive_settings'] = true;
+		if ( $this->flag( $assoc_args, 'import-images' ) ) $policy['import_images'] = true;
 
 		// Preflight is always the first importer operation and is strictly no-write.
 		$report = $importer->preflight( $file, $policy );

@@ -3,7 +3,7 @@
  * Plugin Name: Bricks Import & Export
  * Plugin URI:  https://katsarov.design
  * Description: Export and import your Bricks Builder configuration — settings, Style Manager, theme styles, global classes, variables, pages, templates, and Bricks-enabled post types — as a single zip archive. Supports both admin UI and WP-CLI.
- * Version:     1.1.2
+ * Version:     1.1.3
  * Author:      Katsarov Design
  * Author URI:  https://katsarov.design
  * License:     GPL-2.0-or-later
@@ -14,7 +14,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BRICKS_IE_VERSION', '1.1.2' );
+define( 'BRICKS_IE_VERSION', '1.1.3' );
 define( 'BRICKS_IE_FILE', __FILE__ );
 define( 'BRICKS_IE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BRICKS_IE_URL', plugin_dir_url( __FILE__ ) );
@@ -306,7 +306,7 @@ function bricks_ie_ajax_import_policy() {
 		'conflict_mode'          => $mode,
 		'allow_overwrite'        => bricks_ie_ajax_import_bool( 'allow_overwrite' ),
 		'allow_sensitive_settings' => bricks_ie_ajax_import_bool( 'allow_sensitive_settings' ),
-		'import_images'          => false,
+		'import_images'          => bricks_ie_ajax_import_bool( 'import_images' ),
 	);
 }
 
@@ -322,7 +322,8 @@ function bricks_ie_ajax_import_preflight() {
 	bricks_ie_ajax_import_authorize();
 
 	$importer = new Bricks_IE_Importer();
-	// Never pass through client-controlled plan data and never enable images.
+	// Never pass through client-controlled plan data. Image intent is a bounded
+	// boolean that is bound into the server-generated preflight plan.
 	bricks_ie_ajax_import_error_or_success( $importer->start_import_preflight_session( bricks_ie_ajax_import_policy() ) );
 }
 
@@ -353,7 +354,7 @@ function bricks_ie_ajax_import_confirm() {
 		'conflict_mode'           => $policy['conflict_mode'],
 		'allow_overwrite'         => $policy['allow_overwrite'],
 		'allow_sensitive_settings' => $policy['allow_sensitive_settings'],
-		'import_images'           => false,
+		'import_images'           => $policy['import_images'],
 	);
 	$confirmation = array(
 		'archive_hash'         => $archive_hash,
@@ -365,7 +366,7 @@ function bricks_ie_ajax_import_confirm() {
 		'allow_sensitive_settings' => $policy['allow_sensitive_settings'],
 		'conflict_mode'        => $policy['conflict_mode'],
 		'allow_overwrite'      => $policy['allow_overwrite'],
-		'import_images'        => false,
+		'import_images'        => $policy['import_images'],
 	);
 	$result = ( new Bricks_IE_Importer() )->confirm_import_session( $session_id, $session_token, $confirmation );
 	bricks_ie_ajax_import_error_or_success( $result );

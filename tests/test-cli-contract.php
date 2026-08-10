@@ -113,7 +113,7 @@ bricks_ie_test( 'cli: v1 policy flags are propagated and skip is reported', func
 
 bricks_ie_test( 'cli: command contract retains policy flags and legacy export counts', function () {
 	$source = file_get_contents( dirname( __DIR__ ) . '/includes/class-cli-command.php' );
-	foreach ( array( '--file', '--dry-run', '--conflict', '--allow-overwrite', '--allow-sensitive-settings', '--backup-acknowledged', '--accept-warnings', '--yes' ) as $flag ) {
+	foreach ( array( '--file', '--dry-run', '--conflict', '--allow-overwrite', '--allow-sensitive-settings', '--backup-acknowledged', '--accept-warnings', '--import-images', '--yes' ) as $flag ) {
 		bricks_ie_assert( strpos( $source, $flag ) !== false, 'Missing CLI flag ' . $flag );
 	}
 	foreach ( array( 'options_imported', 'posts_imported', 'id_remaps', 'schema_version', 'native', 'warnings', 'omissions' ) as $key ) {

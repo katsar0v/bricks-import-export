@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.3 — 2026-08-10
+
+### Fixed
+
+- Native template replacement no longer turns logos and other attachment-backed images into Bricks placeholders when template image handling is authorized.
+- Added an opt-in admin checkbox and WP-CLI `--import-images` flag. Matching target attachments are registered by their source origin before Bricks imports the selected templates; missing public template images may then be imported by Bricks.
+- The confirmed image policy is bound to preflight and passed only to the native template stage. General page media remains excluded.
+
+### Tests
+
+- Added end-to-end importer coverage for attachment-origin reconciliation and exact admin/CLI policy propagation; the isolated suite now passes 286/286 tests under `E_ALL`.
+
 ## 1.1.2 — 2026-08-10
 
 ### Fixed

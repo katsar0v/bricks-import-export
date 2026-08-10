@@ -394,10 +394,9 @@ class Bricks_IE_Importer {
 		if ( is_wp_error( $report ) ) return $report;
 		if ( 'blocked' === $report['status'] ) return new WP_Error( 'preflight_blocked', __( 'The archive is blocked by preflight and was not imported.', 'bricks-ie' ) );
 		if ( empty( $request['backup_acknowledged'] ) ) return new WP_Error( 'backup_acknowledgement_required', __( 'A backup acknowledgement is required before a schema-v2 import.', 'bricks-ie' ) );
-		if ( ! empty( $request['import_images'] ) ) return new WP_Error( 'import_images_disabled', __( 'Image downloads are disabled for schema-v2 imports.', 'bricks-ie' ) );
 		$confirmed = isset( $request['preflight'] ) && is_array( $request['preflight'] ) ? $request['preflight'] : ( isset( $request['preflight_plan'] ) && is_array( $request['preflight_plan'] ) ? array( 'plan' => $request['preflight_plan'], 'archive_hash' => isset( $request['archive_hash'] ) ? $request['archive_hash'] : '' ) : array() );
 		if ( empty( $confirmed['plan'] ) || ! isset( $confirmed['archive_hash'], $confirmed['plan_hash'] ) || $confirmed['archive_hash'] !== $report['archive_hash'] || $confirmed['plan_hash'] !== $report['plan_hash'] ) return new WP_Error( 'preflight_confirmation_required', __( 'The schema-v2 import must use the exact plan, plan hash, and archive hash returned by preflight.', 'bricks-ie' ) );
-		if ( ! isset( $confirmed['plan']['conflict_mode'], $confirmed['plan']['allow_overwrite'] ) || $confirmed['plan']['conflict_mode'] !== $report['plan']['conflict_mode'] || (bool) $confirmed['plan']['allow_overwrite'] !== (bool) $report['plan']['allow_overwrite'] ) return new WP_Error( 'preflight_policy_mismatch', __( 'The confirmed conflict policy no longer matches preflight.', 'bricks-ie' ) );
+		if ( ! isset( $confirmed['plan']['conflict_mode'], $confirmed['plan']['allow_overwrite'], $confirmed['plan']['import_images'] ) || $confirmed['plan']['conflict_mode'] !== $report['plan']['conflict_mode'] || (bool) $confirmed['plan']['allow_overwrite'] !== (bool) $report['plan']['allow_overwrite'] || (bool) $confirmed['plan']['import_images'] !== (bool) $report['plan']['import_images'] ) return new WP_Error( 'preflight_policy_mismatch', __( 'The confirmed conflict or template-image policy no longer matches preflight.', 'bricks-ie' ) );
 		$plan = $report['plan'];
 
 		$validation = $this->preflight_validate_archive( $zip_path );
@@ -437,7 +436,17 @@ class Bricks_IE_Importer {
 					break;
 				}
 				if ( ! $this->renew_import_lease( $state, self::IMPORT_MUTATION_GUARD_SECONDS ) ) throw new Exception( __( 'Import lease was lost before a native stage.', 'bricks-ie' ) );
-				$native = $adapter->import_package( $bytes, array( 'types' => array( $type ), 'items' => array( $type => $selected[ $type ] ) ), array( 'conflict_mode' => $plan['conflict_mode'], 'allow_overwrite' => (bool) $plan['allow_overwrite'], 'allow_sensitive_settings' => ! empty( $plan['allow_sensitive_settings'] ), 'import_images' => false ) );
+				if ( 'templates' === $type && ! empty( $plan['import_images'] ) ) {
+					$prepared_media = $this->prepare_native_template_attachment_origins( $bytes, $selected[ $type ] );
+					if ( is_wp_error( $prepared_media ) ) {
+						$result['status'] = 'partial';
+						$result['failed'][] = $type;
+						$result['warnings'][] = $prepared_media->get_error_message();
+						break;
+					}
+					$result['media_reused'] += (int) $prepared_media;
+				}
+				$native = $adapter->import_package( $bytes, array( 'types' => array( $type ), 'items' => array( $type => $selected[ $type ] ) ), array( 'conflict_mode' => $plan['conflict_mode'], 'allow_overwrite' => (bool) $plan['allow_overwrite'], 'allow_sensitive_settings' => ! empty( $plan['allow_sensitive_settings'] ), 'import_images' => 'templates' === $type && ! empty( $plan['import_images'] ) ) );
 				if ( is_wp_error( $native ) || ( is_array( $native ) && isset( $native['success'] ) && false === $native['success'] ) ) { $result['status'] = 'partial'; $result['failed'][] = $type; $result['native_result'][ $type ] = is_wp_error( $native ) ? $native->get_error_code() : 'native_failed'; break; }
 				$result['native_result'][ $type ] = $native;
 				if ( ! $this->renew_import_lease( $state, self::IMPORT_MUTATION_GUARD_SECONDS ) ) { $result['status'] = 'partial'; $result['warnings'][] = __( 'Import lease was lost after a native mutation; no retry will be attempted.', 'bricks-ie' ); break; }
@@ -714,7 +723,7 @@ class Bricks_IE_Importer {
 	}
 
 	private function get_v2_result_skeleton() {
-		return array( 'posts_imported' => 0, 'options_imported' => 0, 'id_remaps' => 0, 'status' => 'completed', 'native_result' => array(), 'warnings' => array(), 'created' => array(), 'updated' => array(), 'skipped' => array(), 'failed' => array(), 'mappings' => array(), 'completed_steps' => array() );
+		return array( 'posts_imported' => 0, 'options_imported' => 0, 'id_remaps' => 0, 'media_reused' => 0, 'status' => 'completed', 'native_result' => array(), 'warnings' => array(), 'created' => array(), 'updated' => array(), 'skipped' => array(), 'failed' => array(), 'mappings' => array(), 'completed_steps' => array() );
 	}
 
 	private function mark_v2_assets_failed( &$result ) {
@@ -815,7 +824,7 @@ class Bricks_IE_Importer {
 	 *                         'conflict_mode' ('skip'|'replace', default 'skip'),
 	 *                         'allow_overwrite' (bool, required for 'replace'),
 	 *                         'allow_sensitive_settings' (bool),
-	 *                         'import_images' (bool; stays disabled in this release).
+	 *                         'import_images' (bool; template images only).
 	 * @return array|WP_Error Normalized no-write report on success with keys:
 	 *                        status (ready|warning|blocked), format_version,
 	 *                        archive_hash, source_environment,
@@ -1009,8 +1018,7 @@ class Bricks_IE_Importer {
 	 * Normalize and validate the import policy flags from the request.
 	 *
 	 * The default conflict mode is "skip". "replace" always requires explicit
-	 * overwrite authorization. Remote template image import stays disabled in
-	 * this release regardless of the request.
+	 * overwrite authorization. Template image import remains opt-in.
 	 *
 	 * @since 1.1.0
 	 *
@@ -1036,7 +1044,7 @@ class Bricks_IE_Importer {
 			'conflict_mode'            => $conflict_mode,
 			'allow_overwrite'          => $allow_overwrite,
 			'allow_sensitive_settings' => ! empty( $request['allow_sensitive_settings'] ),
-			'import_images'            => false,
+			'import_images'            => ! empty( $request['import_images'] ),
 		);
 	}
 
@@ -1178,7 +1186,7 @@ class Bricks_IE_Importer {
 		$manifest = $validation['manifest'];
 		$warnings = isset( $validation['warnings'] ) ? array_values( (array) $validation['warnings'] ) : array();
 		$omissions = $this->preflight_format_validated_omissions( isset( $validation['omissions'] ) ? $validation['omissions'] : array() );
-		$omissions[] = __( 'General media files are not included; existing media references are normalized without downloading files.', 'bricks-ie' );
+		$omissions[] = __( 'General page media files are not included. Template images are reconnected or imported only when explicitly authorized.', 'bricks-ie' );
 
 		// Schema version 2 requires the hardened validator; fail closed when
 		// only the legacy fallback validation ran.
@@ -1512,6 +1520,10 @@ class Bricks_IE_Importer {
 			$omissions[] = __( 'The template conditions sidecar is present but is not applied in this release; it requires review and a typed target map.', 'bricks-ie' );
 		}
 
+		if ( $policy['import_images'] && in_array( 'templates', $native_plan['types'], true ) ) {
+			$security[] = __( 'Template image import is explicitly authorized. Matching local attachments will be reused; missing public images may be downloaded by Bricks.', 'bricks-ie' );
+		}
+
 		if ( empty( $native_plan['types'] ) && 0 === $active_posts ) {
 			return $this->preflight_blocked_report(
 				2,
@@ -1538,7 +1550,7 @@ class Bricks_IE_Importer {
 
 		$native_plan['conflict_mode']   = $policy['conflict_mode'];
 		$native_plan['allow_overwrite'] = $policy['allow_overwrite'];
-		$native_plan['import_images']   = false;
+		$native_plan['import_images']   = $policy['import_images'];
 
 		$report['plan'] = array(
 			'format_version'  => 2,
@@ -1546,7 +1558,7 @@ class Bricks_IE_Importer {
 			'conflict_mode'   => $policy['conflict_mode'],
 			'allow_overwrite' => $policy['allow_overwrite'],
 			'allow_sensitive_settings' => $policy['allow_sensitive_settings'],
-			'import_images'   => false,
+			'import_images'   => $policy['import_images'],
 			'native'          => $native_plan,
 			'posts'           => $this->preflight_plan_actions( $planned['posts'] ),
 			'sidecars'        => array(
@@ -2085,7 +2097,7 @@ class Bricks_IE_Importer {
 		$confirmation_check = $this->validate_staged_confirmation( $state, $confirmation );
 		if ( is_wp_error( $confirmation_check ) ) return $confirmation_check;
 		$plan = $state['preflight']['plan'];
-		$policy = array( 'conflict_mode' => $plan['conflict_mode'], 'allow_overwrite' => (bool) $plan['allow_overwrite'], 'allow_sensitive_settings' => ! empty( $plan['allow_sensitive_settings'] ), 'import_images' => false );
+		$policy = array( 'conflict_mode' => $plan['conflict_mode'], 'allow_overwrite' => (bool) $plan['allow_overwrite'], 'allow_sensitive_settings' => ! empty( $plan['allow_sensitive_settings'] ), 'import_images' => ! empty( $plan['import_images'] ) );
 		$report = $this->preflight( $state['zip_path'], $policy );
 		if ( is_wp_error( $report ) || $report['archive_hash'] !== $state['archive_hash'] ) return new WP_Error( 'archive_changed', __( 'The staged archive changed before confirmation.', 'bricks-ie' ) );
 		if ( $report['plan_hash'] !== $state['preflight']['plan_hash'] ) return new WP_Error( 'preflight_plan_changed', __( 'The preflight plan changed before confirmation.', 'bricks-ie' ) );
@@ -2147,7 +2159,7 @@ class Bricks_IE_Importer {
 		if ( ! isset( $state['archive_hash'], $state['preflight']['plan_hash'], $state['preflight']['plan'], $state['preflight']['status'] ) ) return new WP_Error( 'preflight_confirmation_required', __( 'The staged preflight data is incomplete.', 'bricks-ie' ) );
 		if ( ! isset( $confirmation['archive_hash'], $confirmation['plan_hash'] ) || $confirmation['archive_hash'] !== $state['archive_hash'] || $confirmation['plan_hash'] !== $state['preflight']['plan_hash'] ) return new WP_Error( 'preflight_confirmation_required', __( 'The exact preflight archive and plan hashes are required.', 'bricks-ie' ) );
 		$plan = $state['preflight']['plan'];
-		if ( ! isset( $plan['conflict_mode'], $plan['allow_overwrite'], $confirmation['plan']['conflict_mode'], $confirmation['plan']['allow_overwrite'] ) || $confirmation['plan']['conflict_mode'] !== $plan['conflict_mode'] || (bool) $confirmation['plan']['allow_overwrite'] !== (bool) $plan['allow_overwrite'] ) return new WP_Error( 'preflight_policy_mismatch', __( 'Confirmation policy does not match preflight.', 'bricks-ie' ) );
+		if ( ! isset( $plan['conflict_mode'], $plan['allow_overwrite'], $plan['import_images'], $confirmation['plan']['conflict_mode'], $confirmation['plan']['allow_overwrite'], $confirmation['plan']['import_images'] ) || $confirmation['plan']['conflict_mode'] !== $plan['conflict_mode'] || (bool) $confirmation['plan']['allow_overwrite'] !== (bool) $plan['allow_overwrite'] || (bool) $confirmation['plan']['import_images'] !== (bool) $plan['import_images'] ) return new WP_Error( 'preflight_policy_mismatch', __( 'Confirmation conflict or template-image policy does not match preflight.', 'bricks-ie' ) );
 		if ( 'blocked' === $state['preflight']['status'] ) return new WP_Error( 'preflight_blocked', __( 'The archive is blocked by preflight.', 'bricks-ie' ) );
 		if ( empty( $confirmation['backup_acknowledged'] ) ) return new WP_Error( 'backup_acknowledgement_required', __( 'Backup acknowledgement is required.', 'bricks-ie' ) );
 		if ( 'warning' === $state['preflight']['status'] && empty( $confirmation['warnings_acknowledged'] ) ) return new WP_Error( 'warnings_acknowledgement_required', __( 'Import warnings must be acknowledged.', 'bricks-ie' ) );
@@ -2282,7 +2294,18 @@ class Bricks_IE_Importer {
 				$state['done'] = true;
 				return $this->format_v2_session_response( $state, __( 'Native import is unavailable; no retry will be attempted.', 'bricks-ie' ), true );
 			}
-			$native = $adapter->import_package( $bytes, array( 'types' => array( $type ), 'items' => array( $type => $report['plan']['native']['items'][ $type ] ) ), array( 'conflict_mode' => $report['plan']['conflict_mode'], 'allow_overwrite' => (bool) $report['plan']['allow_overwrite'], 'allow_sensitive_settings' => ! empty( $report['plan']['allow_sensitive_settings'] ), 'import_images' => false ) );
+			if ( 'templates' === $type && ! empty( $report['plan']['import_images'] ) ) {
+				$prepared_media = $this->prepare_native_template_attachment_origins( $bytes, $report['plan']['native']['items'][ $type ] );
+				if ( is_wp_error( $prepared_media ) ) {
+					$result['status'] = 'partial';
+					if ( ! in_array( $type, $result['failed'], true ) ) $result['failed'][] = $type;
+					$result['warnings'][] = $prepared_media->get_error_message();
+					$state['done'] = true;
+					return $this->format_v2_session_response( $state, __( 'Template attachment reconciliation failed; no native retry will be attempted.', 'bricks-ie' ), true );
+				}
+				$result['media_reused'] += (int) $prepared_media;
+			}
+			$native = $adapter->import_package( $bytes, array( 'types' => array( $type ), 'items' => array( $type => $report['plan']['native']['items'][ $type ] ) ), array( 'conflict_mode' => $report['plan']['conflict_mode'], 'allow_overwrite' => (bool) $report['plan']['allow_overwrite'], 'allow_sensitive_settings' => ! empty( $report['plan']['allow_sensitive_settings'] ), 'import_images' => 'templates' === $type && ! empty( $report['plan']['import_images'] ) ) );
 			if ( is_wp_error( $native ) || ( is_array( $native ) && isset( $native['success'] ) && false === $native['success'] ) ) {
 				$result['status'] = 'partial';
 				if ( ! in_array( $type, $result['failed'], true ) ) $result['failed'][] = $type;
@@ -2354,12 +2377,13 @@ class Bricks_IE_Importer {
 	}
 
 	private function format_v2_session_response( &$state, $message, $done = false ) {
+		if ( ! isset( $state['v2_result']['media_reused'] ) ) $state['v2_result']['media_reused'] = 0;
 		$state['completed_steps'] = $state['v2_result']['completed_steps'];
 		$state['total_units']     = count( array_filter( isset( $state['preflight']['plan']['native']['types'] ) ? $state['preflight']['plan']['native']['types'] : array() ) ) + 2;
 		$response                 = $this->format_import_response( $state, $message, $done );
 		$response['status']       = $state['v2_result']['status'];
 
-		foreach ( array( 'native_result', 'warnings', 'created', 'updated', 'skipped', 'failed', 'mappings', 'completed_steps' ) as $key ) {
+		foreach ( array( 'native_result', 'warnings', 'created', 'updated', 'skipped', 'failed', 'mappings', 'completed_steps', 'media_reused' ) as $key ) {
 			$response[ $key ] = $state['v2_result'][ $key ];
 		}
 
@@ -2369,15 +2393,16 @@ class Bricks_IE_Importer {
 
 		if ( $done ) {
 			$response['summary'] = sprintf(
-				/* translators: 1: native imports, 2: native replacements, 3: native skips, 4: created content, 5: updated content, 6: skipped content, 7: failures */
-				__( 'Bricks data: %1$d imported, %2$d replaced, %3$d skipped. Content: %4$d created, %5$d updated, %6$d skipped. Failed: %7$d.', 'bricks-ie' ),
+				/* translators: 1: native imports, 2: native replacements, 3: native skips, 4: created content, 5: updated content, 6: skipped content, 7: failures, 8: reused attachment references */
+				__( 'Bricks data: %1$d imported, %2$d replaced, %3$d skipped. Content: %4$d created, %5$d updated, %6$d skipped. Failed: %7$d. Template attachments reused: %8$d.', 'bricks-ie' ),
 				$outcome_report['counts']['native_imported'],
 				$outcome_report['counts']['native_replaced'],
 				$outcome_report['counts']['native_skipped'],
 				$outcome_report['counts']['content_created'],
 				$outcome_report['counts']['content_updated'],
 				$outcome_report['counts']['content_skipped'],
-				$outcome_report['counts']['failed']
+				$outcome_report['counts']['failed'],
+				$outcome_report['counts']['media_reused']
 			);
 		}
 
@@ -2399,9 +2424,13 @@ class Bricks_IE_Importer {
 			'content_created' => 0,
 			'content_updated' => 0,
 			'content_skipped' => 0,
+			'media_reused'    => isset( $result['media_reused'] ) ? (int) $result['media_reused'] : 0,
 			'failed'          => 0,
 		);
 		$failed_labels = array();
+		if ( $counts['media_reused'] > 0 ) {
+			$items[] = array( 'scope' => 'native', 'type' => 'attachments', 'label' => sprintf( __( '%d template attachment reference(s)', 'bricks-ie' ), $counts['media_reused'] ), 'status' => 'reused' );
+		}
 
 		foreach ( (array) ( isset( $result['native_result'] ) ? $result['native_result'] : array() ) as $type => $native ) {
 			if ( is_array( $native ) && isset( $native['results'][ $type ] ) && is_array( $native['results'][ $type ] ) ) {
@@ -4467,6 +4496,117 @@ class Bricks_IE_Importer {
 		}
 
 		return $data;
+	}
+
+	/**
+	 * Register source template-image URLs against matching target attachments.
+	 *
+	 * Bricks replaces template images with placeholders when image import is
+	 * disabled. When enabled it first checks `_bricks_image_origin_url`, so
+	 * registering a verified local match lets replacement imports reuse the
+	 * existing attachment instead of downloading or losing the logo.
+	 *
+	 * @param string $package_bytes Native Bricks package ZIP bytes.
+	 * @param array  $selected_ids  Explicit template IDs selected by preflight.
+	 * @return int|WP_Error Number of attachment origin mappings written.
+	 */
+	private function prepare_native_template_attachment_origins( $package_bytes, $selected_ids ) {
+		if ( ! is_string( $package_bytes ) || '' === $package_bytes || ! class_exists( 'ZipArchive' ) ) {
+			return new WP_Error( 'template_image_package_unavailable', __( 'The native template package could not be opened for attachment reconciliation.', 'bricks-ie' ) );
+		}
+
+		$temp_file = function_exists( 'wp_tempnam' ) ? wp_tempnam( 'bricks-ie-template-images-' ) : tempnam( sys_get_temp_dir(), 'bricks-ie-template-images-' );
+		if ( ! is_string( $temp_file ) || '' === $temp_file ) {
+			return new WP_Error( 'template_image_temp_failed', __( 'A temporary file could not be created for template attachment reconciliation.', 'bricks-ie' ) );
+		}
+
+		$written = file_put_contents( $temp_file, $package_bytes );
+		if ( false === $written || strlen( $package_bytes ) !== (int) $written ) {
+			if ( file_exists( $temp_file ) ) unlink( $temp_file );
+			return new WP_Error( 'template_image_temp_failed', __( 'The native template package could not be staged for attachment reconciliation.', 'bricks-ie' ) );
+		}
+
+		$zip = new ZipArchive();
+		if ( true !== $zip->open( $temp_file ) ) {
+			unlink( $temp_file );
+			return new WP_Error( 'template_image_package_invalid', __( 'The native template package is not a readable ZIP archive.', 'bricks-ie' ) );
+		}
+
+		$manifest_raw = $zip->getFromName( 'manifest.json' );
+		$manifest     = is_string( $manifest_raw ) ? json_decode( $manifest_raw, true, $this->get_max_json_depth() ) : null;
+		if ( ! is_array( $manifest ) || empty( $manifest['types']['templates']['items'] ) || ! is_array( $manifest['types']['templates']['items'] ) ) {
+			$zip->close();
+			unlink( $temp_file );
+			return new WP_Error( 'template_image_manifest_invalid', __( 'The native package template manifest is missing or invalid.', 'bricks-ie' ) );
+		}
+
+		$selected   = array_fill_keys( array_map( 'strval', (array) $selected_ids ), true );
+		$references = array();
+		foreach ( $manifest['types']['templates']['items'] as $item ) {
+			if ( ! is_array( $item ) || ! isset( $item['id'], $item['path'] ) || ! isset( $selected[ (string) $item['id'] ] ) ) continue;
+			$raw      = $zip->getFromName( (string) $item['path'] );
+			$template = is_string( $raw ) ? json_decode( $raw, true, $this->get_max_json_depth() ) : null;
+			if ( ! is_array( $template ) ) {
+				$zip->close();
+				unlink( $temp_file );
+				return new WP_Error( 'template_image_payload_invalid', __( 'A selected native template could not be inspected for attachment references.', 'bricks-ie' ) );
+			}
+			$this->collect_template_media_references( $template, $references );
+		}
+
+		$zip->close();
+		unlink( $temp_file );
+
+		$mappings = array();
+		foreach ( $references as $media ) {
+			$source_url = ! empty( $media['full'] ) && is_string( $media['full'] ) ? $media['full'] : ( ! empty( $media['url'] ) && is_string( $media['url'] ) ? $media['url'] : '' );
+			if ( '' === $source_url || ! preg_match( '#^https?://#i', $source_url ) ) continue;
+			$attachment_id = $this->resolve_matching_template_attachment_id( $media );
+			if ( $attachment_id > 0 ) $mappings[ $attachment_id . '|' . $source_url ] = array( 'id' => $attachment_id, 'url' => $source_url );
+		}
+
+		$prepared = 0;
+		foreach ( $mappings as $mapping ) {
+			$updated = update_post_meta( $mapping['id'], '_bricks_image_origin_url', $mapping['url'] );
+			if ( false === $updated && get_post_meta( $mapping['id'], '_bricks_image_origin_url', true ) !== $mapping['url'] ) {
+				return new WP_Error( 'template_image_origin_write_failed', sprintf( __( 'Attachment %d could not be prepared for template replacement.', 'bricks-ie' ), $mapping['id'] ) );
+			}
+			$prepared++;
+		}
+
+		return $prepared;
+	}
+
+	/** Resolve a template media reference only when its target URL or filename matches. */
+	private function resolve_matching_template_attachment_id( $media ) {
+		foreach ( array( 'full', 'url' ) as $key ) {
+			if ( empty( $media[ $key ] ) || ! is_string( $media[ $key ] ) ) continue;
+			$attachment_id = attachment_url_to_postid( $this->replace_source_site_url( $media[ $key ] ) );
+			if ( $attachment_id > 0 && 'attachment' === get_post_type( $attachment_id ) ) return (int) $attachment_id;
+		}
+
+		$attachment_id = ! empty( $media['id'] ) && is_numeric( $media['id'] ) ? (int) $media['id'] : 0;
+		if ( $attachment_id < 1 || 'attachment' !== get_post_type( $attachment_id ) ) return 0;
+
+		$source_filename = ! empty( $media['filename'] ) && is_string( $media['filename'] ) ? $media['filename'] : '';
+		if ( '' === $source_filename ) {
+			$source_url      = ! empty( $media['full'] ) && is_string( $media['full'] ) ? $media['full'] : ( ! empty( $media['url'] ) && is_string( $media['url'] ) ? $media['url'] : '' );
+			$source_path     = $source_url ? wp_parse_url( $source_url, PHP_URL_PATH ) : '';
+			$source_filename = $source_path ? basename( $source_path ) : '';
+		}
+
+		$target_url  = wp_get_attachment_url( $attachment_id );
+		$target_path = $target_url ? wp_parse_url( $target_url, PHP_URL_PATH ) : '';
+		if ( '' === $source_filename || ! $target_path || rawurldecode( basename( $target_path ) ) !== rawurldecode( basename( $source_filename ) ) ) return 0;
+
+		return $attachment_id;
+	}
+
+	/** Collect recognized media arrays without mutating native template data. */
+	private function collect_template_media_references( $data, &$references ) {
+		if ( ! is_array( $data ) ) return;
+		if ( $this->is_recognized_media_array( $data ) ) $references[] = $data;
+		foreach ( $data as $value ) $this->collect_template_media_references( $value, $references );
 	}
 
 	/** @return bool */

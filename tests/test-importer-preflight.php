@@ -715,7 +715,7 @@ namespace {
 		return $path;
 	}
 
-	function bricks_ie_pf_native_package_bytes( array $types ) {
+	function bricks_ie_pf_native_package_bytes( array $types, array $files = array() ) {
 		$directory = bricks_ie_test_temp_dir();
 		$path      = $directory . DIRECTORY_SEPARATOR . 'native-package-' . bin2hex( random_bytes( 4 ) ) . '.zip';
 
@@ -729,6 +729,9 @@ namespace {
 		);
 
 		bricks_ie_assert( true === $zip->addFromString( 'manifest.json', json_encode( $manifest ) ), 'Could not add native manifest.' );
+		foreach ( $files as $entry => $content ) {
+			bricks_ie_assert( true === $zip->addFromString( $entry, $content ), 'Could not add native fixture entry: ' . $entry );
+		}
 		bricks_ie_assert( true === $zip->close(), 'Could not close native package fixture.' );
 
 		$bytes = file_get_contents( $path );
@@ -881,7 +884,7 @@ namespace {
 		$sha          = '';
 
 		if ( ! empty( $native_types ) ) {
-			$native_bytes = bricks_ie_pf_native_package_bytes( $native_types );
+			$native_bytes = bricks_ie_pf_native_package_bytes( $native_types, isset( $opts['native_files'] ) && is_array( $opts['native_files'] ) ? $opts['native_files'] : array() );
 			$sha          = hash( 'sha256', $native_bytes );
 		}
 
@@ -1388,7 +1391,7 @@ namespace {
 	);
 
 	bricks_ie_test(
-		'preflight: v2 keeps import_images disabled even when requested',
+		'preflight: v2 binds explicit template-image intent into the confirmed plan',
 		function () {
 			bricks_ie_pf_reset();
 			bricks_ie_pf_configure_v2_inspect();
@@ -1402,8 +1405,8 @@ namespace {
 			$report   = $importer->preflight( $zip, array( 'import_images' => true ) );
 
 			bricks_ie_pf_assert_report( $report, 'v2 import_images:' );
-			bricks_ie_assert_same( false, $report['plan']['import_images'] );
-			bricks_ie_assert_same( false, $report['plan']['native']['import_images'] );
+			bricks_ie_assert_same( true, $report['plan']['import_images'] );
+			bricks_ie_assert_same( true, $report['plan']['native']['import_images'] );
 
 			bricks_ie_assert_same( array(), $GLOBALS['bricks_ie_preflight_test']['write_calls'] );
 		}

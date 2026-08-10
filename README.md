@@ -1,6 +1,6 @@
 # Bricks Import & Export
 
-**Release 1.1.2** exports and imports Bricks configuration through the WordPress admin or WP-CLI. It combines Bricks' native unified global-transfer package with a Katsarov-owned payload for pages and supported non-template post types. Import completion reports native items as imported, replaced, or skipped and separately reports created, updated, skipped, and failed page outcomes.
+**Release 1.1.3** exports and imports Bricks configuration through the WordPress admin or WP-CLI. It combines Bricks' native unified global-transfer package with a Katsarov-owned payload for pages and supported non-template post types. Import completion reports native items as imported, replaced, or skipped and separately reports created, updated, skipped, and failed page outcomes.
 
 The compatibility target audited for this release is **Bricks 2.4-beta2**, using native schema `bricks/unified-global-transfer` version `1`. Bricks 2.4 stable support requires revalidation; this release does not claim it.
 
@@ -25,7 +25,7 @@ Native domains are:
 
 Templates are native-owned in schema 2 and are never also written through the Katsarov post path. The Katsarov payload contains ordinary `page` records and configured Bricks-enabled non-template post types. New dynamic/catalog records are not created by default.
 
-Schema 2 intentionally omits general media, template conditions, `bricks_style_manager`, global pseudo classes, and UI/workflow state such as Element Manager, font favorites, and locked/trashed classes. Font and icon assets may still travel inside the native package. Remote template image download is disabled.
+Schema 2 intentionally omits general page media, template conditions, `bricks_style_manager`, global pseudo classes, and UI/workflow state such as Element Manager, font favorites, and locked/trashed classes. Font and icon assets may still travel inside the native package. Template image handling is opt-in: matching target attachments are reconnected first, then Bricks may import missing public template images.
 
 If the audited native contract is unavailable or has drifted, automatic export falls back to schema 1 and reports the reason. An explicitly requested schema 2 export fails closed instead.
 
@@ -49,7 +49,7 @@ Successful schema 1 and schema 2 exports atomically replace a destination only a
 - Missing `page` records may be created; missing dynamic/CPT records are skipped unless explicitly enabled through the relevant filter.
 - Core title/status updates are limited to approved post types; Bricks meta is limited to the configured allowlist.
 - Typed post and native references are mapped only in known fields. Ambiguous or unresolved references fail closed for the affected page rather than using broad numeric replacement.
-- Existing media references may be normalized, but media files are not transported and missing files are not downloaded.
+- Existing page media references may be normalized, but general page media files are not transported. Explicit template-image authorization reconnects matching target attachments and lets Bricks import missing public template images.
 - After native/content stages, Bricks CSS is regenerated through a verified public/native route. Generated CSS and cache files are not archived. CSS verification failures are partial failures and include `assets` in the failed-step report.
 
 ## Archive structure
@@ -119,12 +119,16 @@ wp bricks import --file=/backups/bricks.zip --user=administrator \
 wp bricks import --file=/backups/bricks.zip --user=administrator \
   --conflict=replace --allow-overwrite --backup-acknowledged --yes
 
+# Replace templates and reconnect/import their images
+wp bricks import --file=/backups/bricks.zip --user=administrator \
+  --conflict=replace --allow-overwrite --import-images --backup-acknowledged --yes
+
 # Accept a warning-bearing preflight and explicitly authorize sensitive settings
 wp bricks import --file=/backups/bricks.zip --user=administrator \
   --accept-warnings --allow-sensitive-settings --backup-acknowledged --yes
 ```
 
-The sole plugin-specific export flag is `--allow-sensitive-settings`; without it, CLI exports are redacted like direct admin exports. Import flags are `--file=<path>`, `--dry-run`, `--conflict=skip|replace`, `--allow-overwrite`, `--allow-sensitive-settings`, `--backup-acknowledged`, `--accept-warnings`, and `--yes`. `--yes` skips only the interactive prompt; it does not bypass validation or policy. Dry-run prints the preflight report and performs no writes. WP-CLI exits non-zero for blocked, failed, partial, or cancelled imports, and for warning/backup/overwrite policy failures.
+The sole plugin-specific export flag is `--allow-sensitive-settings`; without it, CLI exports are redacted like direct admin exports. Import flags are `--file=<path>`, `--dry-run`, `--conflict=skip|replace`, `--allow-overwrite`, `--allow-sensitive-settings`, `--import-images`, `--backup-acknowledged`, `--accept-warnings`, and `--yes`. `--import-images` applies only to native Bricks templates. `--yes` skips only the interactive prompt; it does not bypass validation or policy. Dry-run prints the preflight report and performs no writes. WP-CLI exits non-zero for blocked, failed, partial, or cancelled imports, and for warning/backup/overwrite policy failures.
 
 ## Filters
 
@@ -173,7 +177,7 @@ assets/admin.css                  Admin presentation
 
 ## Testing
 
-The isolated suite contains **285 tests** and passes **285/285 under `E_ALL`**. A fully disposable integration run passes on **WordPress 7.0.3, Bricks 2.4-beta2, and PHP 8.4.24**: schema 2 authorized replacement removes absent allowlisted Bricks meta, writes incoming meta, preserves unrelated meta, and regenerates CSS; schema 1 recursively strips nested `apiKey`, `customCode`, `password`, and `pass` while preserving ordinary siblings. The run also verifies no CLI warnings or temporary ZIP leaks, frontend HTTP 200, clean logs, and cleanup. Plugin-wide PHP lint remains **24/24**; the Node check, git diff check, and root `tests/integration.sh` pass. Bricks 2.4 stable remains unclaimed and requires revalidation; PHP 7.4 runtime execution and builder UI interaction are not claimed.
+The isolated suite contains **286 tests** and passes **286/286 under `E_ALL`**, including template attachment reconciliation and exact image-policy propagation. A fully disposable integration run passes on **WordPress 7.0.3, Bricks 2.4-beta2, and PHP 8.4.24**: schema 2 authorized replacement removes absent allowlisted Bricks meta, writes incoming meta, preserves unrelated meta, and regenerates CSS; schema 1 recursively strips nested `apiKey`, `customCode`, `password`, and `pass` while preserving ordinary siblings. The run also verifies no CLI warnings or temporary ZIP leaks, frontend HTTP 200, clean logs, and cleanup. Plugin-wide PHP lint remains **24/24**; the Node check and git diff check pass. Bricks 2.4 stable remains unclaimed and requires revalidation; PHP 7.4 runtime execution and builder UI interaction are not claimed.
 
 ## License
 

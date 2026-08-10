@@ -144,6 +144,77 @@ namespace {
 		list( $report, $request ) = bricks_ie_v2_confirm( $importer, $zip, array( 'conflict_mode' => 'replace', 'allow_overwrite' => true ) ); $result = $importer->import_from_zip( $zip, $request ); bricks_ie_assert( is_array( $result ) ); $calls = array_filter( $adapter->calls, function ( $call ) { return 'import_package' === $call[0]; } ); bricks_ie_assert( count( $calls ) > 0 ); foreach ( $calls as $call ) bricks_ie_assert_same( 'replace', $call[2]['conflict_mode'] );
 	} );
 
+	bricks_ie_test( 'v2 integration: template image intent reuses a matching attachment and reaches Bricks', function () {
+		bricks_ie_v2_reset_store();
+		$GLOBALS['bricks_ie_v2_media'][2298] = array(
+			'type'  => 'attachment',
+			'image' => true,
+			'full'  => 'https://target.example/wp-content/uploads/Logo-dark.svg',
+		);
+		$GLOBALS['bricks_ie_v2_media'][2299] = array(
+			'type'  => 'attachment',
+			'image' => true,
+			'full'  => 'https://target.example/wp-content/uploads/unrelated.svg',
+		);
+		$types = array(
+			'templates' => array(
+				'id'    => 'templates',
+				'label' => 'Templates',
+				'items' => array(
+					array( 'id' => '2289', 'label' => 'Header Template', 'category' => 'header', 'path' => 'structure/templates/header.json' ),
+				),
+			),
+		);
+		$template = array(
+			'title' => 'Header Template',
+			'header' => array(
+				array(
+					'name' => 'logo',
+					'settings' => array(
+						'logo' => array(
+							'id' => 2298,
+							'filename' => 'Logo-dark.svg',
+							'size' => 'full',
+							'full' => 'https://source.example/wp-content/uploads/Logo-dark.svg',
+							'url' => 'https://source.example/wp-content/uploads/Logo-dark.svg',
+						),
+					),
+				),
+				array(
+					'name' => 'image',
+					'settings' => array(
+						'image' => array(
+							'id' => 2299,
+							'filename' => 'different.svg',
+							'url' => 'https://source.example/wp-content/uploads/different.svg',
+						),
+					),
+				),
+			),
+		);
+		$zip = bricks_ie_pf_v2_archive( array(
+			'name'         => 'template-images.zip',
+			'posts'        => array(),
+			'native_types' => $types,
+			'native_files' => array( 'structure/templates/header.json' => json_encode( $template ) ),
+		) );
+		$adapter = new Bricks_IE_V2_Stateful_Adapter();
+		$adapter->inspect = array( 'manifest' => array( 'schema' => $adapter::EXPECTED_SCHEMA, 'version' => 1, 'types' => $types ) );
+		$adapter->list_results['templates'] = array( 'types' => array( array( 'id' => '2289', 'label' => 'Header Template', 'category' => 'header' ) ) );
+		$validator = new Bricks_IE_V2_Stateful_Validator();
+		$importer = bricks_ie_v2_importer( $validator, $adapter );
+		list( $report, $request ) = bricks_ie_v2_confirm( $importer, $zip, array( 'import_images' => true ) );
+		$result = $importer->import_from_zip( $zip, $request );
+
+		bricks_ie_assert_same( 'completed', $result['status'] );
+		bricks_ie_assert_same( 1, $result['media_reused'] );
+		bricks_ie_assert_same( 'https://source.example/wp-content/uploads/Logo-dark.svg', $GLOBALS['bricks_ie_exporter_test']['post_meta'][2298]['_bricks_image_origin_url'] );
+		bricks_ie_assert( ! isset( $GLOBALS['bricks_ie_exporter_test']['post_meta'][2299]['_bricks_image_origin_url'] ), 'A coincidental numeric ID must not reuse an unrelated attachment.' );
+		$imports = array_values( array_filter( $adapter->calls, function ( $call ) { return 'import_package' === $call[0] && 'templates' === $call[1]; } ) );
+		bricks_ie_assert_same( 1, count( $imports ) );
+		bricks_ie_assert_same( true, $imports[0][2]['import_images'] );
+	} );
+
 	bricks_ie_test( 'v2 integration: native stages use canonical order and stop after failure', function () {
 		bricks_ie_v2_reset_store(); $types = bricks_ie_v2_native_types(); $adapter = new Bricks_IE_V2_Stateful_Adapter(); $adapter->inspect = array( 'manifest' => array( 'schema' => $adapter::EXPECTED_SCHEMA, 'version' => 1, 'types' => $types ) ); $adapter->import_results['classes'] = array( 'success' => false ); $validator = new Bricks_IE_V2_Stateful_Validator(); $zip = bricks_ie_v2_fixture( array(), $types, 'native-failure.zip' ); $importer = bricks_ie_v2_importer( $validator, $adapter ); list( $report, $request ) = bricks_ie_v2_confirm( $importer, $zip ); $result = $importer->import_from_zip( $zip, $request );
 		bricks_ie_assert_same( 'partial', $result['status'] ); $imports = array_values( array_filter( $adapter->calls, function ( $call ) { return 'import_package' === $call[0]; } ) ); bricks_ie_assert_same( 'settings', $imports[0][1] ); bricks_ie_assert_same( 'breakpoints', $imports[1][1] ); bricks_ie_assert_same( 'color-palettes', $imports[2][1] ); bricks_ie_assert_same( 'theme-styles', $imports[3][1] ); bricks_ie_assert_same( 'classes', $imports[4][1] ); bricks_ie_assert_same( 5, count( $imports ) );
