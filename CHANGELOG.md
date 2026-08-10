@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.2 — 2026-08-10
+
+### Fixed
+
+- Import completion now shows every native Bricks item with its explicit `imported`, `replaced`, or `skipped` status instead of hiding native outcomes behind a generic success message.
+- Page outcomes are grouped as created, updated, skipped, and failed, with an accurate terminal summary and idempotent rendering across repeated progress callbacks.
+- Preflight conflict rows now retain their action/status and message instead of displaying only the domain label.
+
+### Tests
+
+- Added backend result-normalization and browser completion-contract regressions; the isolated suite now passes 285/285 tests under `E_ALL`.
+
 ## 1.1.1 — 2026-08-10
 
 ### Fixed

@@ -50,7 +50,9 @@
     function itemText(item) {
         if (item === null || item === undefined) return '';
         if (typeof item !== 'object') return String(item);
-        return item.label || item.name || item.slug || item.domain || item.message || item.action || JSON.stringify(item);
+        var label = item.label || item.name || item.slug || item.domain || '', status = item.status || item.resolution || item.action || '', parts = [];
+        if (label) parts.push(label); if (status) parts.push(status); if (item.message && item.message !== label) parts.push(item.message);
+        return parts.length ? parts.join(' — ') : JSON.stringify(item);
     }
     function list(title, value) {
         if (!value || (Array.isArray(value) && !value.length)) return;
@@ -72,14 +74,35 @@
     function renderSteps(items) {
         steps.empty(); (items || []).forEach(function (step) { var li = node('li'), icon = node('span'), label = node('span'); li.className = 'bricks-ie-progress-step'; li.setAttribute('data-step', step.key || ''); icon.className = 'bricks-ie-progress-step__icon dashicons dashicons-marker'; icon.setAttribute('aria-hidden', 'true'); label.className = 'bricks-ie-progress-step__label'; label.textContent = step.label || ''; li.appendChild(icon); li.appendChild(label); steps[0].appendChild(li); });
     }
+    function humanLabel(value) { return String(value || '').replace(/[-_]+/g, ' ').replace(/\b\w/g, function (letter) { return letter.toUpperCase(); }); }
+    function outcomeText(item) {
+        var prefix = item.type ? humanLabel(item.type) + ': ' : '', label = item.label || item.type || '', status = item.status || 'unknown', detail = item.detail ? ' (' + item.detail + ')' : '';
+        return prefix + label + ' — ' + status + detail;
+    }
+    function renderOutcomes(items) {
+        var groups = [
+            { scope: 'native', title: 'Bricks data results' },
+            { scope: 'content', title: 'Content results' },
+            { scope: 'stage', title: 'Import stage results' }
+        ];
+        groups.forEach(function (group) {
+            var values = (items || []).filter(function (item) { return item && item.scope === group.scope; });
+            if (!values.length) return;
+            var section = node('section'), heading = node('h4', group.title + ' (' + values.length + ')'), ul = node('ul');
+            section.appendChild(heading); values.forEach(function (item) { ul.appendChild(node('li', outcomeText(item))); }); section.appendChild(ul); summary[0].appendChild(section);
+        });
+        if (items && items.length) summary.prop('hidden', false);
+    }
     function progress(data) {
         var value = Math.max(0, Math.min(100, parseInt(data.percent, 10) || 0)); if (data.steps) renderSteps(data.steps);
         message.text(data.message || ''); percent.text(value + '%'); bar.css('width', value + '%'); barWrap.attr('aria-valuenow', value);
         var done = data.completed_steps || [], failed = data.failed_steps || data.error_steps || data.failed || []; failed = Array.isArray(failed) ? failed : [failed]; steps.find('.bricks-ie-progress-step').each(function () { var el = $(this), icon = el.find('.bricks-ie-progress-step__icon'), key = el.attr('data-step'), step = (data.steps || []).filter(function (item) { return item.key === key; })[0] || {}; el.removeClass('is-complete is-current is-error'); icon.removeClass('dashicons-marker dashicons-update dashicons-yes-alt dashicons-no-alt'); if ($.inArray(key, failed) !== -1 || step.status === 'failed' || step.status === 'error') { el.addClass('is-error'); icon.addClass('dashicons-no-alt'); } else if ($.inArray(key, done) !== -1) { el.addClass('is-complete'); icon.addClass('dashicons-yes-alt'); } else if (key === (data.current_step || '')) { el.addClass('is-current'); icon.addClass('dashicons-update'); } else icon.addClass('dashicons-marker'); });
-        if (data.summary) summary.text(data.summary).prop('hidden', false);
-        if (data.warnings) listProgress(data.warnings); if (data.results) listProgress(data.results);
+        summary.empty().prop('hidden', true);
+        if (data.summary) summary.append(node('p', data.summary)).prop('hidden', false);
+        if (data.warnings && data.warnings.length) listProgress(data.warnings, 'Warnings');
+        if (data.outcomes && data.outcomes.length) renderOutcomes(data.outcomes); else if (data.results) listProgress(data.results, 'Results');
     }
-    function listProgress(items) { (Array.isArray(items) ? items : [items]).forEach(function (item) { var p = node('p', typeof item === 'object' ? (item.message || item.label || JSON.stringify(item)) : item); summary.append(p).prop('hidden', false); }); }
+    function listProgress(items, title) { var values = Array.isArray(items) ? items : [items], section = node('section'), heading = node('h4', title + ' (' + values.length + ')'), ul = node('ul'); section.appendChild(heading); values.forEach(function (item) { ul.appendChild(node('li', itemText(item))); }); section.appendChild(ul); summary[0].appendChild(section); summary.prop('hidden', false); }
     function resetFormState() { confirmButton.prop('disabled', true); backup.prop('checked', false); warningAck.prop('checked', false); warningWrap.prop('hidden', true); overwrite.prop('checked', false).prop('required', false); }
     function terminal(status, textValue, data, acknowledged) { busy = false; mutationActive = false; requestBusy = false; if (acknowledged) { sessionId = ''; sessionToken = ''; archiveHash = ''; planHash = ''; plan = {}; } reportStatus = ''; allowSensitiveSettings = false; disableForm(false); resetFormState(); cancelButtons.prop('disabled', false); progressModal.removeClass('is-running is-error is-complete is-partial is-cancelled').addClass('is-' + status); $('#bricks-ie-progress-cancel').prop('hidden', true); $('#bricks-ie-progress-close').prop('hidden', false); message.text(textValue); if (data) progress(data); open(progressModal); }
     function fail(response, data) { var hadMutation = mutationActive; error.text(errorMessage(response) + (hadMutation ? ' ' + t('partialChanges', 'Partial changes may already have been applied because imports are not transactional.') : '')).prop('hidden', false); terminal('error', t('importFailed', 'Import failed.'), data, false); }

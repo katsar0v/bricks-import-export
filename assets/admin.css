@@ -435,6 +435,34 @@
 	background: #edfaef;
 	border: 1px solid #8cce97;
 	color: #1e4620;
+	max-height: 42vh;
+	overflow-y: auto;
+}
+
+.bricks-ie-progress-summary h4 {
+	margin: 1em 0 0.35em;
+}
+
+.bricks-ie-progress-summary section:first-of-type h4 {
+	margin-top: 0.35em;
+}
+
+.bricks-ie-progress-summary ul {
+	margin: 0 0 0.5em 1.25em;
+	list-style: disc;
+}
+
+#bricks-ie-progress-modal.is-partial .bricks-ie-progress-summary,
+#bricks-ie-progress-modal.is-cancelled .bricks-ie-progress-summary {
+	background: #fcf9e8;
+	border-color: #dba617;
+	color: #614200;
+}
+
+#bricks-ie-progress-modal.is-error .bricks-ie-progress-summary {
+	background: #fcf0f1;
+	border-color: #d63638;
+	color: #8a2424;
 }
 
 .bricks-ie-progress-error {

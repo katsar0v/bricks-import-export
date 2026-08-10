@@ -3,7 +3,7 @@
  * Plugin Name: Bricks Import & Export
  * Plugin URI:  https://katsarov.design
  * Description: Export and import your Bricks Builder configuration — settings, Style Manager, theme styles, global classes, variables, pages, templates, and Bricks-enabled post types — as a single zip archive. Supports both admin UI and WP-CLI.
- * Version:     1.1.1
+ * Version:     1.1.2
  * Author:      Katsarov Design
  * Author URI:  https://katsarov.design
  * License:     GPL-2.0-or-later
@@ -14,7 +14,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BRICKS_IE_VERSION', '1.1.1' );
+define( 'BRICKS_IE_VERSION', '1.1.2' );
 define( 'BRICKS_IE_FILE', __FILE__ );
 define( 'BRICKS_IE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BRICKS_IE_URL', plugin_dir_url( __FILE__ ) );

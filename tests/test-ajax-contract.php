@@ -89,3 +89,16 @@ bricks_ie_test( 'admin flow: captures the upload before disabling form controls'
 	bricks_ie_assert( false !== $disable_form, 'Preflight must disable the form while uploading.' );
 	bricks_ie_assert( $form_data < $disable_form, 'FormData must be constructed before disabling the file input.' );
 } );
+
+bricks_ie_test( 'admin flow: completion renders explicit import outcomes without duplication', function () {
+	$script   = file_get_contents( dirname( __DIR__ ) . '/assets/admin.js' );
+	$importer = file_get_contents( dirname( __DIR__ ) . '/includes/class-bricks-importer.php' );
+
+	bricks_ie_assert( false !== strpos( $script, 'data.outcomes' ), 'The completion UI must render normalized outcomes.' );
+	bricks_ie_assert( false !== strpos( $script, "item.status || 'unknown'" ), 'Every completion item must include an explicit status.' );
+	bricks_ie_assert( false !== strpos( $script, 'Bricks data results' ), 'Native Bricks outcomes must have a visible section.' );
+	bricks_ie_assert( false !== strpos( $script, 'Content results' ), 'Created, updated, and skipped content must have a visible section.' );
+	bricks_ie_assert( false !== strpos( $script, "summary.empty().prop('hidden', true)" ), 'Progress details must be rebuilt idempotently.' );
+	bricks_ie_assert( false !== strpos( $importer, "\$response['outcomes']" ), 'Staged responses must expose normalized outcome rows.' );
+	bricks_ie_assert( false !== strpos( $importer, 'Bricks data: %1$d imported, %2$d replaced, %3$d skipped.' ), 'The terminal summary must distinguish native imports, replacements, and skips.' );
+} );

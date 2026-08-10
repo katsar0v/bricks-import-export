@@ -2354,8 +2354,90 @@ class Bricks_IE_Importer {
 	}
 
 	private function format_v2_session_response( &$state, $message, $done = false ) {
-		$state['completed_steps'] = $state['v2_result']['completed_steps']; $state['total_units'] = count( array_filter( isset( $state['preflight']['plan']['native']['types'] ) ? $state['preflight']['plan']['native']['types'] : array() ) ) + 2;
-		$response = $this->format_import_response( $state, $message, $done ); $response['status'] = $state['v2_result']['status']; foreach ( array( 'native_result', 'warnings', 'created', 'updated', 'skipped', 'failed', 'mappings', 'completed_steps' ) as $key ) $response[ $key ] = $state['v2_result'][ $key ]; return $response;
+		$state['completed_steps'] = $state['v2_result']['completed_steps'];
+		$state['total_units']     = count( array_filter( isset( $state['preflight']['plan']['native']['types'] ) ? $state['preflight']['plan']['native']['types'] : array() ) ) + 2;
+		$response                 = $this->format_import_response( $state, $message, $done );
+		$response['status']       = $state['v2_result']['status'];
+
+		foreach ( array( 'native_result', 'warnings', 'created', 'updated', 'skipped', 'failed', 'mappings', 'completed_steps' ) as $key ) {
+			$response[ $key ] = $state['v2_result'][ $key ];
+		}
+
+		$outcome_report            = $this->get_v2_outcome_report( $state['v2_result'] );
+		$response['outcomes']       = $outcome_report['items'];
+		$response['outcome_counts'] = $outcome_report['counts'];
+
+		if ( $done ) {
+			$response['summary'] = sprintf(
+				/* translators: 1: native imports, 2: native replacements, 3: native skips, 4: created content, 5: updated content, 6: skipped content, 7: failures */
+				__( 'Bricks data: %1$d imported, %2$d replaced, %3$d skipped. Content: %4$d created, %5$d updated, %6$d skipped. Failed: %7$d.', 'bricks-ie' ),
+				$outcome_report['counts']['native_imported'],
+				$outcome_report['counts']['native_replaced'],
+				$outcome_report['counts']['native_skipped'],
+				$outcome_report['counts']['content_created'],
+				$outcome_report['counts']['content_updated'],
+				$outcome_report['counts']['content_skipped'],
+				$outcome_report['counts']['failed']
+			);
+		}
+
+		return $response;
+	}
+
+	/**
+	 * Normalize native and content results for the admin completion dialog.
+	 *
+	 * @param array $result Schema-v2 result data.
+	 * @return array
+	 */
+	private function get_v2_outcome_report( $result ) {
+		$items  = array();
+		$counts = array(
+			'native_imported' => 0,
+			'native_replaced' => 0,
+			'native_skipped'  => 0,
+			'content_created' => 0,
+			'content_updated' => 0,
+			'content_skipped' => 0,
+			'failed'          => 0,
+		);
+		$failed_labels = array();
+
+		foreach ( (array) ( isset( $result['native_result'] ) ? $result['native_result'] : array() ) as $type => $native ) {
+			if ( is_array( $native ) && isset( $native['results'][ $type ] ) && is_array( $native['results'][ $type ] ) ) {
+				foreach ( (array) ( isset( $native['results'][ $type ]['items'] ) ? $native['results'][ $type ]['items'] : array() ) as $native_item ) {
+					if ( ! is_array( $native_item ) ) continue;
+					$status = isset( $native_item['status'] ) ? (string) $native_item['status'] : 'completed';
+					$label  = isset( $native_item['label'] ) ? (string) $native_item['label'] : ( isset( $native_item['id'] ) ? (string) $native_item['id'] : (string) $type );
+					$items[] = array( 'scope' => 'native', 'type' => (string) $type, 'label' => $label, 'status' => $status );
+					$count_key = 'native_' . $status;
+					if ( isset( $counts[ $count_key ] ) ) $counts[ $count_key ]++;
+				}
+			} elseif ( is_string( $native ) && '' !== $native ) {
+				$items[] = array( 'scope' => 'native', 'type' => (string) $type, 'label' => (string) $type, 'status' => 'failed', 'detail' => $native );
+				$failed_labels[ (string) $type ] = true;
+				$counts['failed']++;
+			}
+		}
+
+		$content_labels = array();
+		foreach ( array( 'created', 'updated', 'skipped' ) as $status ) {
+			foreach ( array_values( array_unique( (array) ( isset( $result[ $status ] ) ? $result[ $status ] : array() ) ) ) as $label ) {
+				$label = (string) $label;
+				$items[] = array( 'scope' => 'content', 'type' => 'page', 'label' => $label, 'status' => $status );
+				$content_labels[ $label ] = true;
+				$counts[ 'content_' . $status ]++;
+			}
+		}
+
+		foreach ( array_values( array_unique( (array) ( isset( $result['failed'] ) ? $result['failed'] : array() ) ) ) as $label ) {
+			$label = (string) $label;
+			if ( isset( $failed_labels[ $label ] ) ) continue;
+			$items[] = array( 'scope' => isset( $content_labels[ $label ] ) ? 'content' : 'stage', 'type' => isset( $content_labels[ $label ] ) ? 'page' : 'import', 'label' => $label, 'status' => 'failed' );
+			$counts['failed']++;
+		}
+
+		return array( 'items' => $items, 'counts' => $counts );
 	}
 
 	/**

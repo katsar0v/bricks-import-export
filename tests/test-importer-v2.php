@@ -23,6 +23,47 @@ namespace {
 		bricks_ie_assert_same( array( 'settings', 'breakpoints', 'color-palettes', 'theme-styles', 'classes', 'variables', 'custom-fonts', 'icon-manager', 'global-queries', 'components', 'templates', 'custom-capabilities' ), $method->invoke( new Bricks_IE_Importer() ) );
 	} );
 
+	bricks_ie_test( 'importer v2: admin outcome report preserves native and content statuses', function () {
+		$method = new ReflectionMethod( 'Bricks_IE_Importer', 'get_v2_outcome_report' );
+		$method->setAccessible( true );
+		$report = $method->invoke(
+			new Bricks_IE_Importer(),
+			array(
+				'native_result' => array(
+					'templates' => array(
+						'success' => true,
+						'results' => array(
+							'templates' => array(
+								'items' => array(
+									array( 'label' => 'New template', 'status' => 'imported' ),
+									array( 'label' => 'Existing template', 'status' => 'replaced' ),
+									array( 'label' => 'Skipped template', 'status' => 'skipped' ),
+								),
+							),
+						),
+					),
+					'settings' => 'native_failed',
+				),
+				'created' => array( 'new-page' ),
+				'updated' => array( 'changed-page' ),
+				'skipped' => array( 'old-page' ),
+				'failed'  => array( 'settings', 'new-page', 'assets' ),
+			)
+		);
+
+		bricks_ie_assert_same( 1, $report['counts']['native_imported'] );
+		bricks_ie_assert_same( 1, $report['counts']['native_replaced'] );
+		bricks_ie_assert_same( 1, $report['counts']['native_skipped'] );
+		bricks_ie_assert_same( 1, $report['counts']['content_created'] );
+		bricks_ie_assert_same( 1, $report['counts']['content_updated'] );
+		bricks_ie_assert_same( 1, $report['counts']['content_skipped'] );
+		bricks_ie_assert_same( 3, $report['counts']['failed'] );
+		bricks_ie_assert_same( 9, count( $report['items'] ) );
+		bricks_ie_assert_same( 'replaced', $report['items'][1]['status'] );
+		bricks_ie_assert_same( 'content', $report['items'][7]['scope'] );
+		bricks_ie_assert_same( 'failed', $report['items'][7]['status'] );
+	} );
+
 	bricks_ie_test( 'importer: public import rejects user 0 and non-admin before archive validation', function () {
 		bricks_ie_pf_reset();
 		$GLOBALS['bricks_ie_session_user'] = 0;
