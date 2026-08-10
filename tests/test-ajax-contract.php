@@ -76,3 +76,16 @@ bricks_ie_test( 'admin flow: controls, localized contract, and token forwarding 
 	bricks_ie_assert( false !== strpos( $script, 'requestBusy' ), 'Cancellation must respect in-flight requests.' );
 	bricks_ie_assert( false !== strpos( $script, 'cancelButtons.prop(\'disabled\', true)' ), 'Cancellation controls must lock in flight.' );
 } );
+
+bricks_ie_test( 'admin flow: captures the upload before disabling form controls', function () {
+	$script          = file_get_contents( dirname( __DIR__ ) . '/assets/admin.js' );
+	$preflight_start = strpos( $script, 'function preflight()' );
+	$preflight_end   = strpos( $script, 'if (!form.length', $preflight_start );
+	$preflight       = substr( $script, $preflight_start, $preflight_end - $preflight_start );
+	$form_data       = strpos( $preflight, 'new FormData(form[0])' );
+	$disable_form    = strpos( $preflight, 'disableForm(true)' );
+
+	bricks_ie_assert( false !== $form_data, 'Preflight must capture the import form data.' );
+	bricks_ie_assert( false !== $disable_form, 'Preflight must disable the form while uploading.' );
+	bricks_ie_assert( $form_data < $disable_form, 'FormData must be constructed before disabling the file input.' );
+} );
