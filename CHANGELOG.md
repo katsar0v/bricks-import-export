@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.1 — 2026-08-10
+
+### Fixed
+
+- Admin imports now capture the selected ZIP before disabling the form controls, so the browser includes `bricks_ie_import_file` in the AJAX preflight request.
+
+### Tests
+
+- Added regression coverage for the browser upload ordering; the isolated suite now passes 283/283 tests under `E_ALL`.
+
 ## 1.1.0 — 2026-08-08
 
 ### Added
