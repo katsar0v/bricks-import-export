@@ -90,13 +90,39 @@ class Bricks_IE_Admin_Page {
 			return;
 		}
 
-		wp_enqueue_style(
-			'bricks-ie-admin',
-			BRICKS_IE_URL . 'assets/admin.css',
-			array(),
-			BRICKS_IE_VERSION
-		);
-	}
+			wp_enqueue_style(
+				'bricks-ie-admin',
+				BRICKS_IE_URL . 'assets/admin.css',
+				array(),
+				BRICKS_IE_VERSION
+			);
+
+			wp_enqueue_script(
+				'bricks-ie-admin',
+				BRICKS_IE_URL . 'assets/admin.js',
+				array( 'jquery' ),
+				BRICKS_IE_VERSION,
+				true
+			);
+
+			wp_localize_script(
+				'bricks-ie-admin',
+				'bricksIEImport',
+				array(
+					'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+					'nonce'   => wp_create_nonce( 'bricks_ie_import' ),
+					'i18n'    => array(
+						'ajaxError'      => __( 'The import request failed. Please try again.', 'bricks-ie' ),
+						'importComplete' => __( 'Import complete.', 'bricks-ie' ),
+						'importFailed'   => __( 'Import failed.', 'bricks-ie' ),
+						'leaveWarning'   => __( 'An import is currently running. Leaving this page may interrupt it.', 'bricks-ie' ),
+						'partialChanges' => __( 'Partial changes may already have been applied because imports are not transactional.', 'bricks-ie' ),
+						'selectFile'     => __( 'Please choose a .zip file to import.', 'bricks-ie' ),
+						'uploading'      => __( 'Uploading and validating archive...', 'bricks-ie' ),
+					),
+				)
+			);
+		}
 
 	/**
 	 * Render the settings page.
@@ -185,11 +211,11 @@ class Bricks_IE_Admin_Page {
 			</div>
 		</div>
 
-		<div class="bricks-ie-modal-overlay" id="bricks-ie-confirm-modal">
-			<div class="bricks-ie-modal" role="dialog" aria-modal="true" aria-labelledby="bricks-ie-modal-title">
-				<div class="bricks-ie-modal__header">
-					<span class="dashicons dashicons-warning" aria-hidden="true"></span>
-					<h3 id="bricks-ie-modal-title"><?php esc_html_e( 'Confirm Import', 'bricks-ie' ); ?></h3>
+			<div class="bricks-ie-modal-overlay" id="bricks-ie-confirm-modal">
+				<div class="bricks-ie-modal" role="dialog" aria-modal="true" aria-labelledby="bricks-ie-modal-title">
+					<div class="bricks-ie-modal__header">
+						<span class="dashicons dashicons-warning" aria-hidden="true"></span>
+						<h3 id="bricks-ie-modal-title"><?php esc_html_e( 'Confirm Import', 'bricks-ie' ); ?></h3>
 				</div>
 				<div class="bricks-ie-modal__body">
 					<p><?php esc_html_e( 'This will overwrite your current Bricks settings, Style Manager data, theme styles, global classes, variables, color palettes, components, queries, elements, Bricks template/page content, and Bricks meta on enabled post types.', 'bricks-ie' ); ?></p>
@@ -198,56 +224,35 @@ class Bricks_IE_Admin_Page {
 				<div class="bricks-ie-modal__footer">
 					<button type="button" class="button" id="bricks-ie-modal-cancel"><?php esc_html_e( 'Cancel', 'bricks-ie' ); ?></button>
 					<button type="button" class="button button-primary" id="bricks-ie-modal-confirm"><?php esc_html_e( 'Import Now', 'bricks-ie' ); ?></button>
+					</div>
 				</div>
 			</div>
-		</div>
 
-		<script>
-		(function($) {
-			var $form = $('#bricks-ie-import-form');
-			var $modal = $('#bricks-ie-confirm-modal');
-			var visibleClass = 'bricks-ie-modal-overlay--visible';
-			var confirmed = false;
-
-			function openModal() {
-				$modal.addClass(visibleClass);
-			}
-
-			function closeModal() {
-				$modal.removeClass(visibleClass);
-			}
-
-			$form.on('submit', function(e) {
-				if (!confirmed) {
-					e.preventDefault();
-					openModal();
-					return false;
-				}
-			});
-
-			$('#bricks-ie-modal-cancel').on('click', function() {
-				closeModal();
-			});
-
-			$('#bricks-ie-modal-confirm').on('click', function() {
-				closeModal();
-				confirmed = true;
-				$form[0].submit();
-			});
-
-			$modal.on('click', function(e) {
-				if (e.target === this) {
-					closeModal();
-				}
-			});
-
-			$(document).on('keydown', function(e) {
-				if (e.key === 'Escape' && $modal.hasClass(visibleClass)) {
-					closeModal();
-				}
-			});
-		})(jQuery);
-		</script>
-		<?php
+			<div class="bricks-ie-modal-overlay" id="bricks-ie-progress-modal">
+				<div class="bricks-ie-modal bricks-ie-modal--progress" role="dialog" aria-modal="true" aria-labelledby="bricks-ie-progress-title" aria-describedby="bricks-ie-progress-message">
+					<div class="bricks-ie-modal__header">
+						<span class="dashicons dashicons-update" aria-hidden="true"></span>
+						<h3 id="bricks-ie-progress-title"><?php esc_html_e( 'Import Progress', 'bricks-ie' ); ?></h3>
+					</div>
+					<div class="bricks-ie-modal__body">
+						<div class="bricks-ie-progress">
+							<div class="bricks-ie-progress__meta">
+								<span id="bricks-ie-progress-message"><?php esc_html_e( 'Preparing import...', 'bricks-ie' ); ?></span>
+								<strong id="bricks-ie-progress-percent">0%</strong>
+							</div>
+							<div class="bricks-ie-progress__bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+								<span id="bricks-ie-progress-bar"></span>
+							</div>
+						</div>
+						<ol class="bricks-ie-progress-steps" id="bricks-ie-progress-steps" aria-live="polite"></ol>
+						<div class="bricks-ie-progress-summary" id="bricks-ie-progress-summary" hidden></div>
+						<div class="bricks-ie-progress-error" id="bricks-ie-progress-error" hidden></div>
+					</div>
+					<div class="bricks-ie-modal__footer">
+						<button type="button" class="button button-primary" id="bricks-ie-progress-close" hidden><?php esc_html_e( 'Close', 'bricks-ie' ); ?></button>
+					</div>
+				</div>
+			</div>
+			<?php
+		}
 	}
-}

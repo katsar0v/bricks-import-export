@@ -3,7 +3,7 @@
  * Plugin Name: Bricks Import & Export
  * Plugin URI:  https://katsarov.design
  * Description: Export and import your Bricks Builder configuration — settings, Style Manager, theme styles, global classes, variables, pages, templates, and Bricks-enabled post types — as a single zip archive. Supports both admin UI and WP-CLI.
- * Version:     1.0.1
+ * Version:     1.0.2
  * Author:      Katsarov Design
  * Author URI:  https://katsarov.design
  * License:     GPL-2.0-or-later
@@ -14,7 +14,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BRICKS_IE_VERSION', '1.0.1' );
+define( 'BRICKS_IE_VERSION', '1.0.2' );
 define( 'BRICKS_IE_FILE', __FILE__ );
 define( 'BRICKS_IE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BRICKS_IE_URL', plugin_dir_url( __FILE__ ) );
@@ -164,6 +164,49 @@ function bricks_ie_handle_import() {
 
 	$importer = new Bricks_IE_Importer();
 	$importer->upload();
+}
+
+add_action( 'wp_ajax_bricks_ie_import_start', 'bricks_ie_ajax_import_start' );
+
+function bricks_ie_ajax_import_start() {
+	if ( ! current_user_can( 'manage_options' ) ) {
+		wp_send_json_error( array( 'message' => __( 'You do not have sufficient permissions to import Bricks data.', 'bricks-ie' ) ), 403 );
+	}
+
+	if ( ! check_ajax_referer( 'bricks_ie_import', '_ajax_nonce', false ) ) {
+		wp_send_json_error( array( 'message' => __( 'Import security check failed. Please refresh the page and try again.', 'bricks-ie' ) ), 403 );
+	}
+
+	$importer = new Bricks_IE_Importer();
+	$result   = $importer->start_import_session();
+
+	if ( is_wp_error( $result ) ) {
+		wp_send_json_error( array( 'message' => $result->get_error_message() ), 400 );
+	}
+
+	wp_send_json_success( $result );
+}
+
+add_action( 'wp_ajax_bricks_ie_import_step', 'bricks_ie_ajax_import_step' );
+
+function bricks_ie_ajax_import_step() {
+	if ( ! current_user_can( 'manage_options' ) ) {
+		wp_send_json_error( array( 'message' => __( 'You do not have sufficient permissions to import Bricks data.', 'bricks-ie' ) ), 403 );
+	}
+
+	if ( ! check_ajax_referer( 'bricks_ie_import', '_ajax_nonce', false ) ) {
+		wp_send_json_error( array( 'message' => __( 'Import security check failed. Please refresh the page and try again.', 'bricks-ie' ) ), 403 );
+	}
+
+	$session_id = isset( $_POST['session_id'] ) ? sanitize_key( wp_unslash( $_POST['session_id'] ) ) : '';
+	$importer   = new Bricks_IE_Importer();
+	$result     = $importer->run_import_session_step( $session_id );
+
+	if ( is_wp_error( $result ) ) {
+		wp_send_json_error( array( 'message' => $result->get_error_message() ), 400 );
+	}
+
+	wp_send_json_success( $result );
 }
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {

@@ -185,3 +185,140 @@
 	background: #f6f7f7;
 	border-radius: 0 0 8px 8px;
 }
+
+.bricks-ie-modal--progress {
+	width: 560px;
+}
+
+.bricks-ie-modal--progress .bricks-ie-modal__header .dashicons {
+	color: #2271b1;
+}
+
+.bricks-ie-progress-modal-state {
+	display: none;
+}
+
+#bricks-ie-progress-modal.is-running .bricks-ie-modal--progress .bricks-ie-modal__header .dashicons {
+	animation: bricks-ie-spin 900ms linear infinite;
+}
+
+#bricks-ie-progress-modal.is-complete .bricks-ie-modal--progress .bricks-ie-modal__header .dashicons {
+	color: #00a32a;
+	animation: none;
+}
+
+#bricks-ie-progress-modal.is-error .bricks-ie-modal--progress .bricks-ie-modal__header .dashicons {
+	color: #b32d2e;
+	animation: none;
+}
+
+.bricks-ie-progress {
+	margin-bottom: 1.2em;
+}
+
+.bricks-ie-progress__meta {
+	display: flex;
+	justify-content: space-between;
+	gap: 1em;
+	margin-bottom: 0.6em;
+	color: #2c3338;
+}
+
+.bricks-ie-progress__bar {
+	overflow: hidden;
+	height: 10px;
+	background: #dcdcde;
+	border-radius: 999px;
+}
+
+.bricks-ie-progress__bar span {
+	display: block;
+	width: 0;
+	height: 100%;
+	background: linear-gradient(90deg, #2271b1, #00a32a);
+	border-radius: inherit;
+	transition: width 180ms ease;
+}
+
+.bricks-ie-progress-steps {
+	margin: 0;
+	padding: 0;
+	list-style: none !important;
+	list-style-type: none !important;
+	display: grid;
+	gap: 0.45em;
+}
+
+.bricks-ie-progress-step {
+	display: flex;
+	align-items: center;
+	gap: 0.6em;
+	margin: 0;
+	color: #646970;
+	list-style: none !important;
+}
+
+.bricks-ie-progress-step__icon {
+	width: 22px;
+	height: 22px;
+	font-size: 20px;
+	line-height: 22px;
+	color: #8c8f94;
+	flex: 0 0 auto;
+	text-align: center;
+	transition: color 160ms ease, transform 160ms ease;
+}
+
+.bricks-ie-progress-step.is-current {
+	color: #1d2327;
+	font-weight: 600;
+}
+
+.bricks-ie-progress-step.is-current .bricks-ie-progress-step__icon {
+	color: #2271b1;
+	animation: bricks-ie-spin 700ms linear infinite;
+}
+
+.bricks-ie-progress-step.is-complete {
+	color: #1d2327;
+}
+
+.bricks-ie-progress-step.is-complete .bricks-ie-progress-step__icon {
+	color: #00a32a;
+	animation: none;
+}
+
+.bricks-ie-progress-step.is-error {
+	color: #b32d2e;
+	font-weight: 600;
+}
+
+.bricks-ie-progress-step.is-error .bricks-ie-progress-step__icon {
+	color: #b32d2e;
+	animation: none;
+}
+
+.bricks-ie-progress-summary,
+.bricks-ie-progress-error {
+	margin-top: 1em;
+	padding: 0.8em 1em;
+	border-radius: 4px;
+}
+
+.bricks-ie-progress-summary {
+	background: #edfaef;
+	border: 1px solid #8cce97;
+	color: #1e4620;
+}
+
+.bricks-ie-progress-error {
+	background: #fcf0f1;
+	border: 1px solid #d63638;
+	color: #8a2424;
+}
+
+@keyframes bricks-ie-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
