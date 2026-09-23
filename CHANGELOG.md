@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.4 — 2026-09-23
+
+### Fixed
+
+- Recover staged imports after a lost response or a reload in the same browser tab using an authorized session-status check.
+- Wait for an in-flight step before continuing and retain cancellation intent through connection failures; queued steps cannot restart a cancelled import.
+- Restore preflight review controls with fresh acknowledgements when confirmation has not completed.
+
+### Tests
+
+- 289 isolated PHP tests and 5 JavaScript recovery tests pass; no real-site imports were performed for this change.
+
 ## 1.1.3 — 2026-08-10
 
 ### Fixed

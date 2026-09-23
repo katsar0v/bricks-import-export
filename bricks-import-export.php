@@ -3,7 +3,7 @@
  * Plugin Name: Bricks Import & Export
  * Plugin URI:  https://katsarov.design
  * Description: Export and import your Bricks Builder configuration — settings, Style Manager, theme styles, global classes, variables, pages, templates, and Bricks-enabled post types — as a single zip archive. Supports both admin UI and WP-CLI.
- * Version:     1.1.3
+ * Version:     1.1.4
  * Author:      Katsarov Design
  * Author URI:  https://katsarov.design
  * License:     GPL-2.0-or-later
@@ -14,7 +14,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BRICKS_IE_VERSION', '1.1.3' );
+define( 'BRICKS_IE_VERSION', '1.1.4' );
 define( 'BRICKS_IE_FILE', __FILE__ );
 define( 'BRICKS_IE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BRICKS_IE_URL', plugin_dir_url( __FILE__ ) );
@@ -240,6 +240,7 @@ add_action( 'wp_ajax_bricks_ie_import_preflight', 'bricks_ie_ajax_import_preflig
 add_action( 'wp_ajax_bricks_ie_import_start', 'bricks_ie_ajax_import_preflight' );
 add_action( 'wp_ajax_bricks_ie_import_confirm', 'bricks_ie_ajax_import_confirm' );
 add_action( 'wp_ajax_bricks_ie_import_step', 'bricks_ie_ajax_import_step' );
+add_action( 'wp_ajax_bricks_ie_import_status', 'bricks_ie_ajax_import_status' );
 add_action( 'wp_ajax_bricks_ie_import_cancel', 'bricks_ie_ajax_import_cancel' );
 
 function bricks_ie_ajax_import_authorize() {
@@ -335,6 +336,13 @@ function bricks_ie_ajax_import_step() {
 	$importer   = new Bricks_IE_Importer();
 	$result     = $importer->run_import_session_step( $session_id, $session_token );
 	bricks_ie_ajax_import_error_or_success( $result );
+}
+
+function bricks_ie_ajax_import_status() {
+	bricks_ie_ajax_import_authorize();
+	$session_id = isset( $_POST['session_id'] ) ? sanitize_key( wp_unslash( $_POST['session_id'] ) ) : '';
+	$session_token = bricks_ie_ajax_import_scalar( 'session_token' );
+	bricks_ie_ajax_import_error_or_success( ( new Bricks_IE_Importer() )->get_import_session_status( $session_id, $session_token ) );
 }
 
 function bricks_ie_ajax_import_confirm() {

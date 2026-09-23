@@ -1,6 +1,6 @@
 # Bricks Import & Export
 
-**Release 1.1.3** exports and imports Bricks configuration through the WordPress admin or WP-CLI. It combines Bricks' native unified global-transfer package with a Katsarov-owned payload for pages and supported non-template post types. Import completion reports native items as imported, replaced, or skipped and separately reports created, updated, skipped, and failed page outcomes.
+**Release 1.1.4** exports and imports Bricks configuration through the WordPress admin or WP-CLI. It combines Bricks' native unified global-transfer package with a Katsarov-owned payload for pages and supported non-template post types. Import completion reports native items as imported, replaced, or skipped and separately reports created, updated, skipped, and failed page outcomes.
 
 The compatibility target audited for this release is **Bricks 2.4-beta2**, using native schema `bricks/unified-global-transfer` version `1`. Bricks 2.4 stable support requires revalidation; this release does not claim it.
 
@@ -176,6 +176,8 @@ assets/admin.css                  Admin presentation
 ```
 
 ## Testing
+
+For session recovery changes, run `php tests/run.php` and `node tests/test-admin-recovery.js`. These isolated suites do not bootstrap WordPress or run real imports. Version 1.1.4 passes 289 PHP tests and 5 JavaScript recovery tests. Recovery retains the session in the current browser tab, checks for in-flight processing, and preserves pending cancellation. If server cleanup has already removed the session after a lost final response, the UI asks the administrator to inspect the site before starting again.
 
 The isolated suite contains **286 tests** and passes **286/286 under `E_ALL`**, including template attachment reconciliation and exact image-policy propagation. A fully disposable integration run passes on **WordPress 7.0.3, Bricks 2.4-beta2, and PHP 8.4.24**: schema 2 authorized replacement removes absent allowlisted Bricks meta, writes incoming meta, preserves unrelated meta, and regenerates CSS; schema 1 recursively strips nested `apiKey`, `customCode`, `password`, and `pass` while preserving ordinary siblings. The run also verifies no CLI warnings or temporary ZIP leaks, frontend HTTP 200, clean logs, and cleanup. Plugin-wide PHP lint remains **24/24**; the Node check and git diff check pass. Bricks 2.4 stable remains unclaimed and requires revalidation; PHP 7.4 runtime execution and builder UI interaction are not claimed.
 

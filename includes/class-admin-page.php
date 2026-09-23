@@ -134,6 +134,9 @@ class Bricks_IE_Admin_Page {
 						'expired'        => __( 'The import session expired. Please start again.', 'bricks-ie' ),
 						'unauthorized'   => __( 'Your import authorization is no longer valid. Please refresh and try again.', 'bricks-ie' ),
 						'leaseLost'      => __( 'The import lease was lost. No further steps can be run.', 'bricks-ie' ),
+						'recovering'     => __( 'Checking the saved import session...', 'bricks-ie' ),
+						'retryStatus'    => __( 'The connection failed. Retry the status check to continue safely.', 'bricks-ie' ),
+						'sessionGone'    => __( 'The import session is no longer available. It may have finished or expired. Check the site before starting another import.', 'bricks-ie' ),
 					),
 				)
 			);
@@ -272,6 +275,7 @@ class Bricks_IE_Admin_Page {
 					</div>
 					<div class="bricks-ie-modal__footer">
 						<button type="button" class="button" id="bricks-ie-progress-cancel"><?php esc_html_e( 'Cancel import', 'bricks-ie' ); ?></button>
+						<button type="button" class="button button-primary" id="bricks-ie-progress-retry" hidden><?php esc_html_e( 'Retry status check', 'bricks-ie' ); ?></button>
 						<button type="button" class="button button-primary" id="bricks-ie-progress-close" hidden><?php esc_html_e( 'Close', 'bricks-ie' ); ?></button>
 					</div>
 				</div>

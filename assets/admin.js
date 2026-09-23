@@ -3,7 +3,7 @@
 
     var config = window.bricksIEImport || {}, i18n = config.i18n || {};
     var visible = 'bricks-ie-modal-overlay--visible', busy = false, requestBusy = false;
-    var sessionId = '', sessionToken = '', archiveHash = '', planHash = '', plan = {}, reportStatus = '', allowSensitiveSettings = false, importTemplateImages = false, mutationActive = false;
+    var sessionId = '', sessionToken = '', archiveHash = '', planHash = '', plan = {}, reportStatus = '', allowSensitiveSettings = false, importTemplateImages = false, mutationActive = false, cancelPending = false, continuationTimer = 0;
     var form = $('#bricks-ie-import-form'), confirmModal = $('#bricks-ie-confirm-modal'), progressModal = $('#bricks-ie-progress-modal');
     var review = $('#bricks-ie-preflight-review'), confirmButton = $('#bricks-ie-modal-confirm');
     var backup = $('#bricks-ie-backup-ack'), warningAck = $('#bricks-ie-warning-ack'), warningWrap = $('#bricks-ie-warning-ack-wrap');
@@ -104,27 +104,98 @@
     }
     function listProgress(items, title) { var values = Array.isArray(items) ? items : [items], section = node('section'), heading = node('h4', title + ' (' + values.length + ')'), ul = node('ul'); section.appendChild(heading); values.forEach(function (item) { ul.appendChild(node('li', itemText(item))); }); section.appendChild(ul); summary[0].appendChild(section); summary.prop('hidden', false); }
     function resetFormState() { confirmButton.prop('disabled', true); backup.prop('checked', false); warningAck.prop('checked', false); warningWrap.prop('hidden', true); overwrite.prop('checked', false).prop('required', false); }
-    function terminal(status, textValue, data, acknowledged) { busy = false; mutationActive = false; requestBusy = false; if (acknowledged) { sessionId = ''; sessionToken = ''; archiveHash = ''; planHash = ''; plan = {}; } reportStatus = ''; allowSensitiveSettings = false; importTemplateImages = false; disableForm(false); resetFormState(); cancelButtons.prop('disabled', false); progressModal.removeClass('is-running is-error is-complete is-partial is-cancelled').addClass('is-' + status); $('#bricks-ie-progress-cancel').prop('hidden', true); $('#bricks-ie-progress-close').prop('hidden', false); message.text(textValue); if (data) progress(data); open(progressModal); }
+    function clearContinuation() { if (continuationTimer) window.clearTimeout(continuationTimer); continuationTimer = 0; }
+    function scheduleContinuation(callback, delay) { clearContinuation(); continuationTimer = window.setTimeout(function () { continuationTimer = 0; callback(); }, delay); }
+    var savedSessionKey = 'bricks-ie-import-session-v1';
+    function saveSession() { try { window.sessionStorage.setItem(savedSessionKey, JSON.stringify({ id: sessionId, token: sessionToken, cancelPending: cancelPending })); } catch (ignore) {} }
+    function clearSession() { try { window.sessionStorage.removeItem(savedSessionKey); } catch (ignore) {} }
+    function terminal(status, textValue, data, acknowledged) { clearContinuation(); cancelPending = false; busy = false; mutationActive = false; requestBusy = false; if (acknowledged) { sessionId = ''; sessionToken = ''; archiveHash = ''; planHash = ''; plan = {}; clearSession(); } reportStatus = ''; allowSensitiveSettings = false; importTemplateImages = false; disableForm(false); resetFormState(); cancelButtons.prop('disabled', false); progressModal.removeClass('is-running is-error is-complete is-partial is-cancelled').addClass('is-' + status); $('#bricks-ie-progress-cancel, #bricks-ie-progress-retry').prop('hidden', true); $('#bricks-ie-progress-close').prop('hidden', false); message.text(textValue); if (data) progress(data); open(progressModal); }
     function fail(response, data) { var hadMutation = mutationActive; error.text(errorMessage(response) + (hadMutation ? ' ' + t('partialChanges', 'Partial changes may already have been applied because imports are not transactional.') : '')).prop('hidden', false); terminal('error', t('importFailed', 'Import failed.'), data, false); }
     function confirmError(response) { requestBusy = false; error.text(errorMessage(response)).prop('hidden', false); disableForm(false); confirmButton.prop('disabled', false); cancelButtons.prop('disabled', false); open(confirmModal); }
+    function showRecoveryError() {
+        requestBusy = false; busy = true; disableForm(true);
+        progressModal.removeClass('is-running is-complete is-partial').addClass('is-error');
+        message.text(t('retryStatus', 'The connection failed. Retry the status check to continue safely.'));
+        $('#bricks-ie-progress-retry').prop('hidden', false);
+        $('#bricks-ie-progress-close').prop('hidden', true);
+        $('#bricks-ie-progress-cancel').prop('hidden', !sessionId);
+        open(progressModal);
+    }
+    function recoveredStatus(data) {
+        var sessionStatus = data.session_status || data.status;
+        if (data.processing) {
+            busy = true; mutationActive = sessionStatus === 'confirmed'; disableForm(true);
+            close(confirmModal); progressModal.removeClass('is-error').addClass('is-running');
+            $('#bricks-ie-progress-retry, #bricks-ie-progress-cancel').prop('hidden', true);
+            open(progressModal); progress(data); scheduleContinuation(recoverSession, 1000);
+            return;
+        }
+        if (cancelPending) { cancel(); return; }
+        if (sessionStatus === 'awaiting_confirmation') {
+            mutationActive = false;
+            var report = data.preflight || {};
+            plan = report.plan || {}; archiveHash = report.archive_hash || ''; planHash = report.plan_hash || '';
+            reportStatus = report.status || ''; allowSensitiveSettings = !!plan.allow_sensitive_settings; importTemplateImages = !!plan.import_images;
+            renderReview(report); warningWrap.prop('hidden', reportStatus !== 'warning');
+            conflict.val(plan.conflict_mode || 'skip'); overwrite.prop('disabled', conflict.val() !== 'replace').prop('checked', false).prop('required', conflict.val() === 'replace');
+            backup.prop('checked', false); warningAck.prop('checked', false); confirmButton.prop('disabled', true);
+            close(progressModal); disableForm(false); cancelButtons.prop('disabled', false); open(confirmModal);
+            return;
+        }
+        if (sessionStatus !== 'confirmed') { clearSession(); terminal('error', t('sessionGone', 'The import session is no longer available. Check the site before starting another import.'), null, true); return; }
+        mutationActive = true; busy = true; disableForm(true);
+        progressModal.removeClass('is-error is-complete is-partial').addClass('is-running');
+        $('#bricks-ie-progress-retry, #bricks-ie-progress-close').prop('hidden', true);
+        $('#bricks-ie-progress-cancel').prop('hidden', false);
+        close(confirmModal); open(progressModal); progress(data);
+        if (data.done) {
+            var terminalStatus = data.status === 'partial' ? 'partial' : (data.status === 'cancelled' ? 'cancelled' : (data.status === 'failed' || data.status === 'blocked' || data.status === 'error' ? 'error' : 'complete'));
+            terminal(terminalStatus, terminalStatus === 'partial' ? t('importPartial', 'Import completed with warnings.') : terminalStatus === 'cancelled' ? t('cancelled', 'The import was cancelled.') : terminalStatus === 'error' ? t('importFailed', 'Import failed.') : t('importComplete', 'Import complete.'), data, true);
+            return;
+        }
+        scheduleContinuation(nextStep, 150);
+    }
+    function recoverSession() {
+        if (!sessionId || !sessionToken || requestBusy) return;
+        requestBusy = true; busy = true; $('#bricks-ie-progress-retry').prop('hidden', true);
+        message.text(t('recovering', 'Checking the saved import session...')); open(progressModal);
+        $.post(config.ajaxUrl, { action: 'bricks_ie_import_status', _ajax_nonce: config.nonce, session_id: sessionId, session_token: sessionToken })
+            .done(function (response) {
+                requestBusy = false;
+                if (response && response.success) return recoveredStatus(response.data || {});
+                var code = responseEnvelope(response).code;
+                if (code === 'expired_session' || code === 'import_unauthorized' || code === 'import_lease_lost' || code === 'import_session_changed') {
+                    terminal('error', code === 'expired_session' ? t('sessionGone', 'The import session is no longer available. Check the site before starting another import.') : errorMessage(response), null, true);
+                } else showRecoveryError();
+            })
+            .fail(function (response) {
+                requestBusy = false;
+                var code = responseEnvelope(response).code;
+                if (code === 'expired_session' || code === 'import_unauthorized' || code === 'import_lease_lost' || code === 'import_session_changed') {
+                    terminal('error', code === 'expired_session' ? t('sessionGone', 'The import session is no longer available. Check the site before starting another import.') : errorMessage(response), null, true);
+                } else showRecoveryError();
+            });
+    }
     function cancel() {
+        cancelPending = true; saveSession(); clearContinuation(); cancelButtons.prop('disabled', true);
         if (requestBusy || !sessionId || !sessionToken) return;
-        requestBusy = true; cancelButtons.prop('disabled', true); $.post(config.ajaxUrl, { action: 'bricks_ie_import_cancel', _ajax_nonce: config.nonce, session_id: sessionId, session_token: sessionToken }).always(function (response) { requestBusy = false; if (isImportInProgress(response)) { cancelButtons.prop('disabled', false); progress(responseEnvelope(response).data); return; } if (response && response.success) terminal('cancelled', t('cancelled', 'The import was cancelled. Cleanup was attempted.'), responseEnvelope(response).data, true); else { cancelButtons.prop('disabled', false); fail(response); } });
+        requestBusy = true; $.post(config.ajaxUrl, { action: 'bricks_ie_import_cancel', _ajax_nonce: config.nonce, session_id: sessionId, session_token: sessionToken }).always(function (response) { requestBusy = false; if (response && response.success) terminal('cancelled', t('cancelled', 'The import was cancelled. Cleanup was attempted.'), responseEnvelope(response).data, true); else recoverSession(); });
     }
     function nextStep() {
+        if (cancelPending) { cancel(); return; }
         if (!mutationActive || requestBusy || !sessionId) return;
-        requestBusy = true; $.post(config.ajaxUrl, { action: 'bricks_ie_import_step', _ajax_nonce: config.nonce, session_id: sessionId, session_token: sessionToken }).done(function (response) { requestBusy = false; if (!response || !response.success) { if (isImportInProgress(response)) { progress(responseEnvelope(response).data); return window.setTimeout(nextStep, 150); } return fail(response, responseEnvelope(response).data); } progress(responseEnvelope(response).data); if (responseEnvelope(response).data.done) { var stepData = responseEnvelope(response).data, terminalStatus = stepData.status === 'partial' ? 'partial' : (stepData.status === 'cancelled' ? 'cancelled' : (stepData.status === 'failed' || stepData.status === 'blocked' || stepData.status === 'error' ? 'error' : 'complete')); terminal(terminalStatus, terminalStatus === 'partial' ? t('importPartial', 'Import completed with warnings.') : terminalStatus === 'cancelled' ? t('cancelled', 'The import was cancelled.') : terminalStatus === 'error' ? t('importFailed', 'Import failed.') : t('importComplete', 'Import complete.'), stepData, true); } else window.setTimeout(nextStep, 150); }).fail(function (response) { requestBusy = false; if (isImportInProgress(response)) { progress(responseEnvelope(response).data); return window.setTimeout(nextStep, 150); } fail(response); });
+        requestBusy = true; $.post(config.ajaxUrl, { action: 'bricks_ie_import_step', _ajax_nonce: config.nonce, session_id: sessionId, session_token: sessionToken }).done(function (response) { requestBusy = false; if (!response || !response.success) return recoverSession(); progress(responseEnvelope(response).data); if (responseEnvelope(response).data.done) { var stepData = responseEnvelope(response).data, terminalStatus = stepData.status === 'partial' ? 'partial' : (stepData.status === 'cancelled' ? 'cancelled' : (stepData.status === 'failed' || stepData.status === 'blocked' || stepData.status === 'error' ? 'error' : 'complete')); terminal(terminalStatus, terminalStatus === 'partial' ? t('importPartial', 'Import completed with warnings.') : terminalStatus === 'cancelled' ? t('cancelled', 'The import was cancelled.') : terminalStatus === 'error' ? t('importFailed', 'Import failed.') : t('importComplete', 'Import complete.'), stepData, true); } else if (cancelPending) cancel(); else scheduleContinuation(nextStep, 150); }).fail(function () { requestBusy = false; recoverSession(); });
     }
     function confirmImport() {
-        if (requestBusy || reportStatus === 'blocked' || !sessionId || !backup.prop('checked') || (warningWrap.is(':visible') && !warningAck.prop('checked')) || (conflict.val() === 'replace' && !overwrite.prop('checked'))) return;
-        requestBusy = true; confirmButton.prop('disabled', true); cancelButtons.filter('#bricks-ie-modal-cancel').prop('disabled', true); $.post(config.ajaxUrl, { action: 'bricks_ie_import_confirm', _ajax_nonce: config.nonce, session_id: sessionId, session_token: sessionToken, archive_hash: archiveHash, plan_hash: planHash, conflict_mode: conflict.val(), allow_overwrite: overwrite.prop('checked') ? '1' : '0', allow_sensitive_settings: allowSensitiveSettings ? '1' : '0', import_images: importTemplateImages ? '1' : '0', backup_acknowledged: '1', warnings_acknowledged: warningAck.prop('checked') ? '1' : '0' }).done(function (response) { requestBusy = false; if (!response || !response.success) { if (isImportInProgress(response)) return confirmError(response); return confirmError(response); } mutationActive = true; close(confirmModal); progressModal.removeClass('is-error is-complete is-partial').addClass('is-running'); $('#bricks-ie-progress-cancel').prop('hidden', false); resetProgress(); open(progressModal); progress(responseEnvelope(response).data); nextStep(); }).fail(function (response) { confirmError(response); });
+        if (cancelPending || requestBusy || reportStatus === 'blocked' || !sessionId || !backup.prop('checked') || (warningWrap.is(':visible') && !warningAck.prop('checked')) || (conflict.val() === 'replace' && !overwrite.prop('checked'))) return;
+        requestBusy = true; confirmButton.prop('disabled', true); cancelButtons.filter('#bricks-ie-modal-cancel').prop('disabled', true); $.post(config.ajaxUrl, { action: 'bricks_ie_import_confirm', _ajax_nonce: config.nonce, session_id: sessionId, session_token: sessionToken, archive_hash: archiveHash, plan_hash: planHash, conflict_mode: conflict.val(), allow_overwrite: overwrite.prop('checked') ? '1' : '0', allow_sensitive_settings: allowSensitiveSettings ? '1' : '0', import_images: importTemplateImages ? '1' : '0', backup_acknowledged: '1', warnings_acknowledged: warningAck.prop('checked') ? '1' : '0' }).done(function (response) { requestBusy = false; if (!response || !response.success) return cancelPending || isImportInProgress(response) ? recoverSession() : confirmError(response); mutationActive = true; close(confirmModal); progressModal.removeClass('is-error is-complete is-partial').addClass('is-running'); $('#bricks-ie-progress-cancel').prop('hidden', false); resetProgress(); open(progressModal); progress(responseEnvelope(response).data); if (cancelPending) cancel(); else nextStep(); }).fail(function (response) { requestBusy = false; if (!cancelPending && responseEnvelope(response).code && !isImportInProgress(response)) return confirmError(response); recoverSession(); });
     }
     function preflight() {
         var file = form.find('input[type=file]')[0]; if (!file || !file.files.length) { window.alert(t('selectFile', 'Please choose a .zip file to import.')); return; }
-        if (busy || requestBusy) return; busy = true; requestBusy = true; sessionId = ''; sessionToken = ''; archiveHash = ''; planHash = ''; plan = {}; reportStatus = '';
+        if (busy || requestBusy) return; busy = true; requestBusy = true; cancelPending = false; clearContinuation(); sessionId = ''; sessionToken = ''; archiveHash = ''; planHash = ''; plan = {}; reportStatus = '';
         allowSensitiveSettings = $('#bricks-ie-allow-sensitive').prop('checked'); importTemplateImages = $('#bricks-ie-import-images').prop('checked'); var data = new FormData(form[0]); data.set ? (data.set('action', 'bricks_ie_import_preflight'), data.set('_ajax_nonce', config.nonce), data.set('allow_sensitive_settings', allowSensitiveSettings ? '1' : '0'), data.set('import_images', importTemplateImages ? '1' : '0')) : (data.append('action', 'bricks_ie_import_preflight'), data.append('_ajax_nonce', config.nonce), data.append('import_images', importTemplateImages ? '1' : '0'));
         disableForm(true); resetProgress(); progressModal.addClass('is-running'); $('#bricks-ie-progress-cancel').prop('hidden', true); $('#bricks-ie-progress-close').prop('hidden', true); message.text(t('preflighting', 'Uploading and preparing review...')); open(progressModal);
-        $.ajax({ url: config.ajaxUrl, method: 'POST', dataType: 'json', data: data, processData: false, contentType: false }).done(function (response) { requestBusy = false; if (!response || !response.success) return fail(response); var result = response.data, report = result.preflight || result; sessionId = result.session_id || ''; sessionToken = result.session_token || ''; archiveHash = report.archive_hash || result.archive_hash || ''; planHash = report.plan_hash || result.plan_hash || ''; plan = report.plan || {}; reportStatus = report.status || ''; renderReview(report); warningWrap.prop('hidden', report.status !== 'warning'); overwrite.prop('required', conflict.val() === 'replace'); backup.prop('checked', false); warningAck.prop('checked', false); confirmButton.prop('disabled', report.status === 'blocked'); close(progressModal); disableForm(false); form.find('[name=allow_overwrite]').prop('disabled', conflict.val() !== 'replace'); open(confirmModal); }).fail(function (response) { requestBusy = false; fail(response); });
+        $.ajax({ url: config.ajaxUrl, method: 'POST', dataType: 'json', data: data, processData: false, contentType: false }).done(function (response) { requestBusy = false; if (!response || !response.success) return fail(response); var result = response.data, report = result.preflight || result; sessionId = result.session_id || ''; sessionToken = result.session_token || ''; if (sessionId && sessionToken) saveSession(); archiveHash = report.archive_hash || result.archive_hash || ''; planHash = report.plan_hash || result.plan_hash || ''; plan = report.plan || {}; reportStatus = report.status || ''; renderReview(report); warningWrap.prop('hidden', report.status !== 'warning'); overwrite.prop('required', conflict.val() === 'replace'); backup.prop('checked', false); warningAck.prop('checked', false); confirmButton.prop('disabled', report.status === 'blocked'); close(progressModal); disableForm(false); form.find('[name=allow_overwrite]').prop('disabled', conflict.val() !== 'replace'); open(confirmModal); }).fail(function (response) { requestBusy = false; fail(response); });
     }
     if (!form.length || !confirmModal.length || !progressModal.length || !config.ajaxUrl) return;
     conflict.on('change', function () { overwrite.prop('disabled', this.value !== 'replace'); if (this.value === 'replace') overwrite.prop('required', true); else overwrite.prop('checked', false).prop('required', false); });
@@ -132,8 +203,15 @@
     backup.add(warningAck).on('change', function () { confirmButton.prop('disabled', !backup.prop('checked') || (warningWrap.is(':visible') && !warningAck.prop('checked')) || (conflict.val() === 'replace' && !overwrite.prop('checked'))); });
     $('#bricks-ie-modal-cancel').on('click', function () { if (sessionId) { close(confirmModal); cancel(); } else close(confirmModal); });
     $('#bricks-ie-modal-confirm').on('click', confirmImport); $('#bricks-ie-progress-cancel').on('click', cancel);
+    $('#bricks-ie-progress-retry').on('click', recoverSession);
     $('#bricks-ie-progress-close').on('click', function () { if (!busy) close(progressModal); });
     confirmModal.on('click', function (event) { if (event.target === this && !requestBusy) { close(confirmModal); if (sessionId) cancel(); } });
     $(document).on('keydown', function (event) { if (event.key === 'Escape') { var help = $('.bricks-ie-help[aria-expanded="true"]'); if (help.length) { event.preventDefault(); setConflictHelp(help.first(), false); return; } } var modal = confirmModal.hasClass(visible) ? confirmModal : progressModal.hasClass(visible) ? progressModal : $(); if (!modal.length) return; if (event.key === 'Escape') { event.preventDefault(); if (requestBusy) return; if (modal.is(progressModal) && !mutationActive) return close(progressModal); if (modal.is(progressModal) && mutationActive) return cancel(); close(modal); if (modal.is(confirmModal) && sessionId) cancel(); } else if (event.key === 'Tab') { var focusable = modal.find('button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])').filter(':visible'), first = focusable.first()[0], last = focusable.last()[0]; if (first && last && (event.target === last || event.target === modal[0]) && !event.shiftKey) { event.preventDefault(); $(first).trigger('focus'); } else if (first && last && event.target === first && event.shiftKey) { event.preventDefault(); $(last).trigger('focus'); } } });
     $(window).on('beforeunload', function () { return mutationActive ? t('leaveWarning', 'An import is currently running. Leaving this page may interrupt it.') : undefined; });
+    try {
+        var savedSession = JSON.parse(window.sessionStorage.getItem(savedSessionKey) || 'null');
+        if (savedSession && typeof savedSession.id === 'string' && typeof savedSession.token === 'string' && savedSession.id && savedSession.token) {
+            sessionId = savedSession.id; sessionToken = savedSession.token; cancelPending = savedSession.cancelPending === true; recoverSession();
+        }
+    } catch (ignore) { clearSession(); }
 }(jQuery));

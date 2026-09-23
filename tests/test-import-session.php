@@ -356,4 +356,61 @@ namespace {
 		bricks_ie_assert( ! file_exists( $file ) );
 		bricks_ie_assert_same( false, get_transient( 'bricks_ie_import_' . $id ) );
 	} );
+
+	bricks_ie_test( 'import session: status recovery honors ownership and waits for the processing slot', function () {
+		bricks_ie_pf_reset();
+		$GLOBALS['bricks_ie_pf_spy_mode'] = true;
+		$GLOBALS['wpdb'] = new Bricks_IE_Test_WPDB();
+		$zip = bricks_ie_pf_v2_archive( array( 'name' => 'status-recovery.zip', 'posts' => array( array( 'id' => 1, 'slug' => 'status-recovery', 'type' => 'page', 'status' => 'publish', 'title' => 'Status recovery', 'meta' => array() ) ) ) );
+		$importer = new Bricks_IE_Importer();
+		$report = $importer->preflight( $zip );
+		$id = 'status-recovery'; $token = 'status-token';
+		$create = new ReflectionMethod( $importer, 'create_staged_session_state' ); $create->setAccessible( true );
+		$register = new ReflectionMethod( $importer, 'register_import_session' ); $register->setAccessible( true );
+		$state = $create->invoke( $importer, $id, $token, 42, $zip, $report['archive_hash'], $report );
+		bricks_ie_assert_same( true, $register->invoke( $importer, $state ) );
+		set_transient( 'bricks_ie_import_' . $id, $state, HOUR_IN_SECONDS );
+		$staged = $importer->get_import_session_status( $id, $token );
+		bricks_ie_assert_same( 'awaiting_confirmation', $staged['session_status'] );
+		bricks_ie_assert_same( false, $staged['processing'] );
+		bricks_ie_assert_same( $report['plan_hash'], $staged['preflight']['plan_hash'] );
+		bricks_ie_assert_same( 'import_unauthorized', $importer->get_import_session_status( $id, 'wrong' )->get_error_code() );
+		$owner = hash( 'sha256', $token );
+		$lease = new ReflectionMethod( $importer, 'acquire_import_lease' ); $lease->setAccessible( true );
+		bricks_ie_assert_same( true, $lease->invoke( $importer, $owner, $id, 42, $report['archive_hash'] ) );
+		$state['status'] = 'confirmed'; $state['lease_owner_hash'] = $owner; $state['step'] = 'native';
+		bricks_ie_assert_same( true, $register->invoke( $importer, $state ) );
+		set_transient( 'bricks_ie_import_' . $id, $state, HOUR_IN_SECONDS );
+		$GLOBALS['bricks_ie_exporter_test']['options']['bricks_ie_import_processing_' . $id] = array( 'owner' => 'in-flight', 'expires_at' => time() + 120 );
+		$running = $importer->get_import_session_status( $id, $token );
+		bricks_ie_assert_same( 'confirmed', $running['session_status'] );
+		bricks_ie_assert_same( true, $running['processing'] );
+		unset( $GLOBALS['bricks_ie_exporter_test']['options']['bricks_ie_import_processing_' . $id] );
+		$ready = $importer->get_import_session_status( $id, $token );
+		bricks_ie_assert_same( false, $ready['processing'] );
+		bricks_ie_assert_same( false, $ready['done'] );
+		bricks_ie_assert_same( true, $importer->cancel_import_session( $id, $token ) );
+		bricks_ie_assert_same( 'expired_session', $importer->get_import_session_status( $id, $token )->get_error_code() );
+	} );
+
+	bricks_ie_test( 'import session: abandoned upload cleanup leaves an active session and its archive intact', function () {
+		bricks_ie_pf_reset();
+		$GLOBALS['bricks_ie_pf_spy_mode'] = true;
+		$GLOBALS['wpdb'] = new Bricks_IE_Test_WPDB();
+		$dir = bricks_ie_test_temp_dir();
+		$expired = $dir . '/expired.zip'; $active = $dir . '/active.zip';
+		file_put_contents( $expired, 'expired' ); file_put_contents( $active, 'active' );
+		$GLOBALS['bricks_ie_exporter_test']['options']['bricks_ie_import_sessions'] = array(
+			'expired-upload' => array( 'zip_path' => $expired, 'trusted_temp_dir' => $dir, 'is_temporary' => true, 'expires_at' => time() - 1, 'lease_owner_hash' => '' ),
+			'active-upload' => array( 'zip_path' => $active, 'trusted_temp_dir' => $dir, 'is_temporary' => true, 'expires_at' => time() + 3600, 'lease_owner_hash' => '' ),
+		);
+		set_transient( 'bricks_ie_import_expired-upload', array( 'status' => 'awaiting_confirmation' ), HOUR_IN_SECONDS );
+		set_transient( 'bricks_ie_import_active-upload', array( 'status' => 'awaiting_confirmation' ), HOUR_IN_SECONDS );
+		bricks_ie_assert_same( true, ( new Bricks_IE_Importer() )->cleanup_expired_import_sessions() );
+		bricks_ie_assert( ! file_exists( $expired ) );
+		bricks_ie_assert( file_exists( $active ) );
+		bricks_ie_assert_same( false, get_transient( 'bricks_ie_import_expired-upload' ) );
+		bricks_ie_assert( is_array( get_transient( 'bricks_ie_import_active-upload' ) ) );
+		bricks_ie_assert( isset( $GLOBALS['bricks_ie_exporter_test']['options']['bricks_ie_import_sessions']['active-upload'] ) );
+	} );
 }

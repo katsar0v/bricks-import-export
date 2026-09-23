@@ -2175,6 +2175,33 @@ class Bricks_IE_Importer {
 		return true;
 	}
 
+	/** Read the persisted session before a client retries after a lost response. */
+	public function get_import_session_status( $session_id, $session_token = '' ) {
+		$admin = $this->authorize_current_import_admin();
+		if ( is_wp_error( $admin ) ) return $admin;
+		$session_id = $this->canonicalize_import_session_id( $session_id );
+		if ( '' === $session_id ) return new WP_Error( 'missing_session', __( 'Missing import session.', 'bricks-ie' ) );
+		$state = get_transient( $this->get_import_session_key( $session_id ) );
+		if ( ! is_array( $state ) ) return new WP_Error( 'expired_session', __( 'Import session expired. Please start the import again.', 'bricks-ie' ) );
+		$auth = $this->authorize_staged_session( $state, $session_id, $session_token );
+		if ( is_wp_error( $auth ) ) return $auth;
+		$status = isset( $state['status'] ) ? $state['status'] : '';
+		if ( ! in_array( $status, array( 'awaiting_confirmation', 'confirmed' ), true ) ) return new WP_Error( 'import_session_changed', __( 'Import session is no longer recoverable.', 'bricks-ie' ) );
+		$state = $this->reread_claimed_import_session( $session_id, $session_token, $status, 'confirmed' === $status );
+		if ( is_wp_error( $state ) ) return $state;
+		$found = null;
+		$processing = $this->read_option_from_database( 'bricks_ie_import_processing_' . $session_id, $found );
+		if ( null === $found || ( true === $found && ( ! is_array( $processing ) || empty( $processing['owner'] ) ) ) ) return new WP_Error( 'import_session_state_unavailable', __( 'Import session processing state could not be verified.', 'bricks-ie' ) );
+		$response = 2 === (int) $state['format_version']
+			? $this->format_v2_session_response( $state, __( 'Import status recovered.', 'bricks-ie' ), ! empty( $state['done'] ) )
+			: $this->format_import_response( $state, __( 'Import status recovered.', 'bricks-ie' ), ! empty( $state['done'] ) );
+		$response['session_status'] = $status;
+		if ( ! isset( $response['status'] ) ) $response['status'] = $status;
+		$response['processing'] = true === $found;
+		if ( 'awaiting_confirmation' === $status ) $response['preflight'] = $state['preflight'];
+		return $response;
+	}
+
 	/**
 	 * Run the next unit of an AJAX import session.
 	 *

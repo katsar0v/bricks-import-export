@@ -14,6 +14,20 @@ bricks_ie_test( 'ajax contract: dependencies and actions are wired', function ()
 	bricks_ie_assert( false !== strpos( $source, "wp_ajax_bricks_ie_import_start', 'bricks_ie_ajax_import_preflight" ) );
 	bricks_ie_assert( false !== strpos( $source, "wp_ajax_bricks_ie_import_confirm" ) );
 	bricks_ie_assert( false !== strpos( $source, "wp_ajax_bricks_ie_import_cancel" ) );
+	bricks_ie_assert( false !== strpos( $source, "wp_ajax_bricks_ie_import_status" ) );
+} );
+
+bricks_ie_test( 'admin recovery: lost responses check session status before another mutation', function () {
+	$source = file_get_contents( dirname( __DIR__ ) . '/bricks-import-export.php' );
+	$script = file_get_contents( dirname( __DIR__ ) . '/assets/admin.js' );
+	bricks_ie_assert( false !== strpos( $source, 'get_import_session_status( $session_id, $session_token )' ) );
+	bricks_ie_assert( false !== strpos( $script, "action: 'bricks_ie_import_status'" ) );
+	bricks_ie_assert( false !== strpos( $script, 'window.sessionStorage.setItem' ) );
+	bricks_ie_assert( false !== strpos( $script, 'window.sessionStorage.getItem' ) );
+	bricks_ie_assert( false !== strpos( $script, 'if (data.processing)' ), 'Recovery must wait for the current processing claim.' );
+	$step = substr( $script, strpos( $script, 'function nextStep()' ), strpos( $script, 'function confirmImport()' ) - strpos( $script, 'function nextStep()' ) );
+	bricks_ie_assert( false !== strpos( $step, '.fail(function () { requestBusy = false; recoverSession(); })' ), 'Lost step response must check status before retrying.' );
+	bricks_ie_assert( false !== strpos( $script, "code === 'expired_session'" ), 'Expired sessions must be terminal in recovery.' );
 } );
 
 bricks_ie_test( 'ajax contract: tokens and confirmation policy cannot be bypassed', function () {
