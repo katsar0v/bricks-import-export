@@ -308,12 +308,14 @@ class Bricks_IE_Bricks_Transfer_Adapter {
 			return $this->permission_error( 'manage_options' );
 		}
 
-		$explicit_types = ! empty( $types );
 		if ( empty( $types ) ) {
-			$types = $this->get_native_type_ids();
-			if ( is_wp_error( $types ) ) {
-				return $types;
+			$native_types = $this->get_native_type_ids();
+			if ( is_wp_error( $native_types ) ) {
+				return $native_types;
 			}
+			// New native categories are not audited by this adapter. Keep the
+			// full inventory in detect_capabilities() for exporter disclosure.
+			$types = array_values( array_intersect( $native_types, self::KNOWN_TYPE_IDS ) );
 		}
 		$types = $this->sanitize_type_list( $types );
 
@@ -325,7 +327,9 @@ class Bricks_IE_Bricks_Transfer_Adapter {
 		// Listing is read-only: filter to the types the user may access rather
 		// than hard-failing, matching the native permissive listing semantics.
 		$types = $this->filter_accessible_types( $types );
-		if ( $explicit_types && empty( $types ) ) {
+		// Bricks treats an empty includeTypes/list_export_items argument as
+		// "all". Never broaden an empty authorized selection through either route.
+		if ( empty( $types ) ) {
 			return array(
 				'types' => array(),
 				'via'   => $this->get_ability( self::ABILITY_LIST ) ? 'ability' : 'native',

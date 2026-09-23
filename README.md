@@ -1,15 +1,15 @@
 # Bricks Import & Export
 
-**Release 1.1.4** exports and imports Bricks configuration through the WordPress admin or WP-CLI. It combines Bricks' native unified global-transfer package with a Katsarov-owned payload for pages and supported non-template post types. Import completion reports native items as imported, replaced, or skipped and separately reports created, updated, skipped, and failed page outcomes.
+**Release 1.1.5** exports and imports Bricks configuration through the WordPress admin or WP-CLI. It combines Bricks' native unified global-transfer package with a Katsarov-owned payload for pages and supported non-template post types. Import completion reports native items as imported, replaced, or skipped and separately reports created, updated, skipped, and failed page outcomes.
 
-The compatibility target audited for this release is **Bricks 2.4-beta2**, using native schema `bricks/unified-global-transfer` version `1`. Bricks 2.4 stable support requires revalidation; this release does not claim it.
+The full compatibility target audited for this release is **Bricks 2.4-beta2**, using native schema `bricks/unified-global-transfer` version `1`. Release 1.1.5 also handles the extra `builder-interface` transfer category observed in Bricks 2.4.1: default exports omit this unaudited category and report the omission. This is a targeted 2.4.1 fix, not a full stable compatibility audit.
 
 ## Requirements
 
 - WordPress 6.0 or newer
 - PHP 7.4 or newer
 - `ZipArchive`, including callable `getExternalAttributesIndex()` support and `ZipArchive::OPSYS_UNIX` (the capability is available from PHP 5.6+/PECL zip 1.12.4, but is checked at runtime)
-- Bricks 2.4-beta2 for schema 2; schema 1 retains its exact-version compatibility requirement
+- Bricks 2.4-beta2 for fully audited schema 2 behavior; 2.4.1 has the targeted default-export fix above; schema 1 retains its exact-version compatibility requirement
 - An administrator (`manage_options`); native domains may also require their Bricks manager permissions, `upload_files`, SVG upload, or code-execution permission
 
 ## Archive schemas
@@ -27,7 +27,7 @@ Templates are native-owned in schema 2 and are never also written through the Ka
 
 Schema 2 intentionally omits general page media, template conditions, `bricks_style_manager`, global pseudo classes, and UI/workflow state such as Element Manager, font favorites, and locked/trashed classes. Font and icon assets may still travel inside the native package. Template image handling is opt-in: matching target attachments are reconnected first, then Bricks may import missing public template images.
 
-If the audited native contract is unavailable or has drifted, automatic export falls back to schema 1 and reports the reason. An explicitly requested schema 2 export fails closed instead.
+If the audited native contract is unavailable or has drifted, automatic export falls back to schema 1 and reports the reason. An explicitly requested schema 2 export fails closed instead. Extra native transfer categories outside the audited set are excluded from default schema 2 exports and recorded as warnings and omissions; explicit requests for them fail closed.
 
 ### Schema 1 (legacy compatibility)
 
@@ -177,9 +177,11 @@ assets/admin.css                  Admin presentation
 
 ## Testing
 
-For session recovery changes, run `php tests/run.php` and `node tests/test-admin-recovery.js`. These isolated suites do not bootstrap WordPress or run real imports. Version 1.1.4 passes 289 PHP tests and 5 JavaScript recovery tests. Recovery retains the session in the current browser tab, checks for in-flight processing, and preserves pending cancellation. If server cleanup has already removed the session after a lost final response, the UI asks the administrator to inspect the site before starting again.
+Run `php tests/run.php` and `node tests/test-admin-recovery.js` for the isolated suites; they do not bootstrap WordPress or run real imports. Version 1.1.5 passes **292/292 PHP tests** and **5/5 JavaScript recovery tests**, including the Bricks 2.4.1 extra-category and empty-selection regressions. Recovery retains the session in the current browser tab, checks for in-flight processing, and preserves pending cancellation. If server cleanup has already removed the session after a lost final response, the UI asks the administrator to inspect the site before starting again.
 
-The isolated suite contains **286 tests** and passes **286/286 under `E_ALL`**, including template attachment reconciliation and exact image-policy propagation. A fully disposable integration run passes on **WordPress 7.0.3, Bricks 2.4-beta2, and PHP 8.4.24**: schema 2 authorized replacement removes absent allowlisted Bricks meta, writes incoming meta, preserves unrelated meta, and regenerates CSS; schema 1 recursively strips nested `apiKey`, `customCode`, `password`, and `pass` while preserving ordinary siblings. The run also verifies no CLI warnings or temporary ZIP leaks, frontend HTTP 200, clean logs, and cleanup. Plugin-wide PHP lint remains **24/24**; the Node check and git diff check pass. Bricks 2.4 stable remains unclaimed and requires revalidation; PHP 7.4 runtime execution and builder UI interaction are not claimed.
+A local release check on **WordPress 7.1.2, Bricks 2.4.1, and PHP 8.4.24** completed a real default schema 2 export (7 native types, 67 native items, and 26 pages), then validated the outer archive and inspected the embedded native package without importing it. The unsupported `builder-interface` category was explicitly disclosed as omitted. This verifies export and inspection on that configuration, not an import round trip.
+
+The previous disposable integration run passed on **WordPress 7.0.3, Bricks 2.4-beta2, and PHP 8.4.24**: schema 2 authorized replacement removed absent allowlisted Bricks meta, wrote incoming meta, preserved unrelated meta, and regenerated CSS; schema 1 recursively stripped nested `apiKey`, `customCode`, `password`, and `pass` keys while preserving ordinary siblings. It also verified no CLI warnings or temporary ZIP leaks, frontend HTTP 200, clean logs, and cleanup. That run does not establish a Bricks 2.4.1 import/export round trip. Full stable compatibility, PHP 7.4 runtime execution, and builder UI interaction remain unclaimed.
 
 ## License
 

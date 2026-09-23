@@ -1521,6 +1521,24 @@ namespace {
 		bricks_ie_assert( false !== strpos( implode( "\n", $sidecar['warnings'] ), 'omitted' ) );
 	} );
 
+	bricks_ie_test( 'exporter v2: extra Bricks 2.4.1 category is omitted and disclosed', function () {
+		bricks_ie_ex_reset(); bricks_ie_ex_prime_native();
+		\Bricks\Unified_Global_Transfer::$type_ids[] = 'builder-interface';
+		$out = bricks_ie_test_temp_dir() . DIRECTORY_SEPARATOR . 'extra-native-type.zip';
+		$result = ( new Bricks_IE_Exporter() )->build_zip( $out );
+		bricks_ie_assert( is_array( $result ) && ! is_wp_error( $result ), 'default export should tolerate an unaudited native type' );
+		bricks_ie_assert_same( 2, $result['schema_version'] );
+		bricks_ie_assert( in_array( 'native_type_unsupported', bricks_ie_ex_omission_ids( $result['omissions'] ), true ) );
+		bricks_ie_assert( false !== strpos( implode( "\n", $result['warnings'] ), 'builder-interface' ) );
+		$sidecar = json_decode( bricks_ie_ex_zip_members( $out )['katsarov/export-warnings.json'], true );
+		bricks_ie_assert( in_array( 'native_type_unsupported', bricks_ie_ex_omission_ids( $sidecar['omissions'] ), true ) );
+		bricks_ie_assert( false !== strpos( json_encode( $sidecar['omissions'] ), 'builder-interface' ) );
+		$list_calls = array_values( array_filter( \Bricks\Unified_Global_Transfer::$calls, function ( $call ) { return 'list_export_items' === $call[0]; } ) );
+		bricks_ie_assert_same( Bricks_IE_Bricks_Transfer_Adapter::KNOWN_TYPE_IDS, $list_calls[0][1][0] );
+		$export_args = bricks_ie_ex_last_native_call( 'export_package' );
+		bricks_ie_assert( ! in_array( 'builder-interface', $export_args[0], true ) );
+	} );
+
 	bricks_ie_test( 'exporter v2: explicitly requested omitted type fails closed', function () {
 		bricks_ie_ex_reset(); bricks_ie_ex_prime_native();
 		\Bricks\Unified_Global_Transfer::$list_result = array( 'types' => array() );

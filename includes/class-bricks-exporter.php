@@ -606,9 +606,19 @@ class Bricks_IE_Exporter {
 		$list_inventory = $this->native_list_inventory( $list_types );
 		$warnings  = array();
 		$omissions = $this->get_v2_omissions();
+		$native_type_ids = isset( $report['type_ids'] ) && is_array( $report['type_ids'] )
+			? array_values( array_map( 'strval', $report['type_ids'] ) )
+			: Bricks_IE_Bricks_Transfer_Adapter::KNOWN_TYPE_IDS;
 		$intended_types = ! empty( $requested_types )
 			? array_values( array_unique( array_map( 'strval', $requested_types ) ) )
-			: ( isset( $report['type_ids'] ) && is_array( $report['type_ids'] ) ? array_values( array_map( 'strval', $report['type_ids'] ) ) : Bricks_IE_Bricks_Transfer_Adapter::KNOWN_TYPE_IDS );
+			: array_values( array_intersect( $native_type_ids, Bricks_IE_Bricks_Transfer_Adapter::KNOWN_TYPE_IDS ) );
+
+		if ( empty( $requested_types ) ) {
+			foreach ( array_diff( $native_type_ids, Bricks_IE_Bricks_Transfer_Adapter::KNOWN_TYPE_IDS ) as $type ) {
+				$warnings[] = sprintf( __( 'Native transfer type "%s" is not supported by this plugin and was not exported.', 'bricks-ie' ), $type );
+				$omissions[] = array( 'id' => 'native_type_unsupported', 'type' => $type, 'message' => sprintf( __( 'Native transfer type "%s" is outside this plugin\'s audited categories and was not exported.', 'bricks-ie' ), $type ) );
+			}
+		}
 
 		foreach ( $intended_types as $type ) {
 			if ( ! array_key_exists( $type, $list_inventory ) ) {

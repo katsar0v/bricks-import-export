@@ -591,6 +591,43 @@ namespace {
 		}
 	);
 
+	bricks_ie_test( 'adapter: default listing excludes unaudited native types', function () {
+		bricks_ie_adapter_test_reset();
+		\Bricks\Unified_Global_Transfer::$type_ids[] = 'builder-interface';
+		$adapter = bricks_ie_adapter_test_adapter();
+		$report = $adapter->detect_capabilities();
+		bricks_ie_assert_same( true, $report['available'] );
+		bricks_ie_assert( in_array( 'builder-interface', $report['type_ids'], true ), 'full native inventory remains available for disclosure' );
+
+		$result = $adapter->list_items();
+		bricks_ie_assert( ! is_wp_error( $result ), 'extra native types must not block default listing' );
+		bricks_ie_assert(
+			in_array( array( 'list_export_items', array( Bricks_IE_Bricks_Transfer_Adapter::KNOWN_TYPE_IDS ) ), \Bricks\Unified_Global_Transfer::$calls, true ),
+			'native list must receive only supported types'
+		);
+		$unsupported = $adapter->list_items( array( 'builder-interface' ) );
+		bricks_ie_assert_instance_of( 'WP_Error', $unsupported );
+		bricks_ie_assert_same( 'bricks_ie_unsupported_transfer_type', $unsupported->get_error_code() );
+	} );
+
+	bricks_ie_test( 'adapter: empty authorized listing never reaches the native all-types route', function () {
+		bricks_ie_adapter_test_reset();
+		\Bricks\Unified_Global_Transfer::$type_ids = array( 'classes', 'builder-interface' );
+		\Bricks\Builder_Permissions::$granted['access_class_manager'] = false;
+		$adapter = bricks_ie_adapter_test_adapter();
+		$result = $adapter->list_items();
+		bricks_ie_assert_same( array( 'types' => array(), 'via' => 'native' ), $result );
+		foreach ( \Bricks\Unified_Global_Transfer::$calls as $call ) {
+			bricks_ie_assert( 'list_export_items' !== $call[0], 'empty selection must not call the native list route' );
+		}
+
+		$ability = new Bricks_IE_Test_Stub_Ability( 'list', array( 'types' => array() ) );
+		$GLOBALS['bricks_ie_adapter_test']['abilities']['bricks/list-transfer-items'] = $ability;
+		$result = $adapter->list_items();
+		bricks_ie_assert_same( array( 'types' => array(), 'via' => 'ability' ), $result );
+		bricks_ie_assert_same( null, $ability->last_input, 'empty selection must not call the ability either' );
+	} );
+
 	// ==================================================================
 	// Success paths (native fallback)
 	// ==================================================================

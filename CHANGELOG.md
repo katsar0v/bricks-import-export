@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.5 — 2026-09-23
+
+### Fixed
+
+- Default schema 2 exports tolerate the extra `builder-interface` native transfer category found in Bricks 2.4.1. The category remains unsupported and is explicitly reported as omitted; explicit requests still fail closed.
+- An empty authorized transfer listing now returns empty without invoking Bricks' native all-types behavior.
+
+### Compatibility
+
+- This is a targeted Bricks 2.4.1 default-export fix. Full stable-release import/export compatibility remains unverified.
+
 ## 1.1.4 — 2026-09-23
 
 ### Fixed
